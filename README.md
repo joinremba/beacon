@@ -1,28 +1,28 @@
-# @remba/beacon
+<p align="center">
+  <picture>
+    <img alt="@remba/beacon" src="./assets/logo.svg" width="80">
+  </picture>
+  <br>
+  <strong>@remba/beacon</strong>
+</p>
 
-[![npm version](https://img.shields.io/npm/v/@remba/beacon.svg)](https://www.npmjs.com/package/@remba/beacon)
-[![Licence](https://img.shields.io/npm/l/@remba/beacon.svg)](LICENSE)
-[![CI](https://github.com/joinremba/beacon/actions/workflows/ci.yml/badge.svg)](https://github.com/joinremba/beacon/actions/workflows/ci.yml)
-![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3.1-black)
+<p align="center">
+  <a href="https://www.npmjs.com/package/@remba/beacon"><img src="https://img.shields.io/npm/v/@remba/beacon.svg" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/@remba/beacon.svg" alt="Licence"></a>
+  <a href="https://github.com/joinremba/beacon/actions/workflows/ci.yml"><img src="https://github.com/joinremba/beacon/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Bun-%3E%3D1.3.1-black?logo=bun" alt="Bun">
+  <img src="https://img.shields.io/badge/TypeScript-6-blue" alt="TypeScript">
+</p>
 
 Beacon helps TypeScript teams boot applications safely by validating environment variables, config, secrets, and runtime feature gates before production breaks.
 
-## Features
-
-- **Schema-based validation** — Define your env schema with simple string types (`"url"`, `"port"`, `"enum"`, etc.) or raw Zod schemas. Catch missing or malformed values at startup.
-- **Missing variable detection** — Know exactly which variables are missing before your app starts. All errors are collected and reported together, not one at a time.
-- **Redacted config logging** — Keep secrets out of logs and error messages automatically. Secret values are replaced with `[REDACTED]`.
-- **Local/staging/production profiles** — Define different schemas per environment. Override or extend the base schema for each deployment target.
-- **`.env.example` generation** — Generate an `.env.example` file from your schema (via CLI).
-- **CLI** — Run `beacon init` to scaffold config and `beacon check` to validate before deploying.
-- **Zero runtime overhead** — Validations run once at boot. After that, access is plain property reads.
-- **Framework-agnostic** — Works with any TypeScript backend: Bun, Node.js, Express, Hono, Fastify, Next.js, Elysia.
-
-## Installation
-
 ```sh
 bun add @remba/beacon
+bunx beacon init
+bunx beacon check
 ```
+
+---
 
 ## Quick Start
 
@@ -42,51 +42,118 @@ const config = createBeacon({
 });
 
 config.ensure();
-// config is now safe to use:
+
 const dbUrl = config.get<string>("DATABASE_URL");
 ```
 
-If any variable is missing or invalid, `ensure()` throws a `ConfigValidationError` with all issues collected — so you fix everything at once, not iteratively.
+If any variable is missing or invalid, `ensure()` throws a `ConfigValidationError` with **all issues collected at once** — so you fix everything in a single pass, not iteratively.
+
+---
+
+## Why Beacon?
+
+Most backend projects start with a scattered collection of helper functions for reading env vars, checking types, and remembering which vars are required. This works until:
+
+- A new developer joins and doesn't know which env vars exist
+- A staging environment crashes because a required var was renamed but not documented
+- A secret leaks into an error log because nobody added redaction
+- Your CI pipeline passes locally but fails in production due to config drift
+
+Beacon solves these by giving you a **single source of truth** for your env schema, with built-in validation, secrets redaction, profile support, and CLI tools for generating `.env.example` and checking environments.
+
+---
+
+## Features
+
+- **Schema-based validation** — Define your env schema with simple string types (`"url"`, `"port"`, `"enum"`, etc.) or raw Zod schemas.
+- **Missing variable detection** — All errors are collected and reported together, not one at a time.
+- **Secrets redaction** — Keep secrets out of logs and error messages automatically. Values are replaced with `[REDACTED]`.
+- **Local/staging/production profiles** — Define different schemas per environment.
+- **`.env.example` generation** — Generate a documented `.env.example` from your schema via the CLI.
+- **CLI** — `beacon init` scaffolds config, `beacon check` validates before deploying.
+- **Zero runtime overhead** — Validations run once at boot. After that, access is plain property reads.
+- **Framework-agnostic** — Works with Bun, Node.js, Express, Hono, Fastify, Next.js, Elysia.
+
+---
 
 ## CLI
 
-Beacon ships with a CLI for development workflows:
+Beacon ships with a CLI for development and CI workflows.
+
+### `beacon init`
+
+Generate a documented `.env.example` from your beacon config:
 
 ```sh
-# Coming soon
-bunx beacon init           # Generate .env.example from your schema
-bunx beacon check          # Validate current environment
-bunx beacon check -c ./src/config.ts
+bunx beacon init
+
+# With a production profile:
+bunx beacon init --profile production
+
+# Custom config path:
+bunx beacon init -c ./config/beacon.json -o .env.example.prod
 ```
 
-## Profiles
+Output includes types, defaults, descriptions, and secret markers for every variable:
 
-Define different schemas per environment. The profile merges over the base schema:
+```sh
+# PostgreSQL connection string
+# Type: url
+# Required: yes
+# DATABASE_URL=
 
-```ts
-const config = createBeacon({
-  schema: {
-    DB_HOST: { type: "string", default: "localhost" },
-    DB_PORT: { type: "port", default: 5432 },
-  },
-  profile: process.env.BEACON_PROFILE,
-  profiles: {
-    staging: {
-      DB_HOST: { type: "string", required: true },
-    },
-    production: {
-      DB_HOST: { type: "host", required: true },
-      DB_PORT: { type: "port", required: true },
-    },
-  },
-});
+# HTTP server port
+# Type: port
+# Default: 3000
+PORT=3000
 ```
+
+### `beacon check`
+
+Validate your current environment against your schema:
+
+```sh
+bunx beacon check
+
+# With a specific profile:
+bunx beacon check --profile staging
+
+# Custom config:
+bunx beacon check -c ./config/production.json
+```
+
+Output is a colour-coded table:
+
+```sh
+  KEY           STATUS    VALUE
+  ────────────  ────────  ────────────────────
+  DATABASE_URL  pass      postgres://localhost...
+  PORT          pass      Using default value
+  NODE_ENV      pass      Using default value
+  API_KEY       MISSING   Not set
+  LOG_LEVEL     pass      Optional, not set
+  DB_HOST       MISSING   Not set
+                     Did you mean DB_HOSTNAME?
+
+  2 issue(s), 3 pass
+```
+
+Exit codes: `0` if all pass, `1` if any issues found.
+
+### Per-command help
+
+```sh
+beacon help init
+beacon check --help
+```
+
+---
 
 ## API Reference
 
-### `createBeacon(options)`
+### `createBeacon(schema, options?)`
 
-The default export. Accepts a `BeaconOptions` object and returns a config instance.
+The default export. Accepts an env schema and optional configuration.
 
 **Parameters**
 
@@ -98,21 +165,7 @@ The default export. Accepts a `BeaconOptions` object and returns a config instan
 
 **SchemaEntry** can be either:
 
-1. **String-based** — Simple type names for everyday use:
-
-```ts
-{
-  type: "url"; // z.string().url()
-  type: "number"; // z.coerce.number()
-  type: "integer"; // z.coerce.number().int()
-  type: "boolean"; // "true"/"false"/"1"/"0"
-  type: "port"; // number between 1-65535
-  type: "enum"; // requires values[]
-  type: "email"; // z.string().email()
-  type: "host"; // z.string()
-  type: "string"; // z.string()
-}
-```
+**1. String-based** — Simple type names for everyday use:
 
 | Field         | Type        | Default | Description                          |
 | ------------- | ----------- | ------- | ------------------------------------ |
@@ -123,13 +176,24 @@ The default export. Accepts a `BeaconOptions` object and returns a config instan
 | `values`      | `string[]`  | —       | Allowed values (only for `"enum"`).  |
 | `description` | `string`    | —       | Used when generating `.env.example`. |
 
-2. **Zod schema** — Advanced users can pass Zod schemas directly:
+| Type      | Zod equivalent                               |
+| --------- | -------------------------------------------- |
+| `string`  | `z.string()`                                 |
+| `url`     | `z.string().url()`                           |
+| `number`  | `z.coerce.number()`                          |
+| `integer` | `z.coerce.number().int()`                    |
+| `boolean` | `"true"` / `"false"` / `"1"` / `"0"` coerced |
+| `port`    | integer 1–65535                              |
+| `enum`    | requires `values[]`                          |
+| `email`   | `z.string().email()`                         |
+| `host`    | `z.string()`                                 |
+
+**2. Zod schema** — Advanced users can pass Zod schemas directly:
 
 ```ts
 {
-  schema: z.string().min(1).max(255),
-  required: true,
-  secret: false,
+  PORT: { schema: z.coerce.number().positive().max(9999) },
+  WHITELIST: { schema: z.string().regex(/^[\d,]+$/) },
 }
 ```
 
@@ -157,6 +221,36 @@ import type {
 } from "@remba/beacon";
 ```
 
+### Config file (`.beaconrc.json`)
+
+Used by the CLI for `init` and `check` commands:
+
+```json
+{
+  "schema": {
+    "DATABASE_URL": {
+      "type": "url",
+      "required": true,
+      "description": "PostgreSQL connection string"
+    },
+    "PORT": { "type": "port", "default": 3000, "description": "HTTP server port" },
+    "NODE_ENV": {
+      "type": "enum",
+      "values": ["development", "production"],
+      "default": "development"
+    },
+    "API_KEY": { "type": "string", "required": true, "secret": true }
+  },
+  "profiles": {
+    "production": {
+      "DB_HOST": { "type": "host", "required": true, "description": "Production DB hostname" }
+    }
+  }
+}
+```
+
+---
+
 ## Examples
 
 ### Basic env validation
@@ -174,7 +268,7 @@ const config = createBeacon({
 });
 
 config.ensure();
-console.log(config.get("PORT")); // 3000 (or the value of $PORT)
+console.log(config.get("PORT"));
 ```
 
 ### With secrets redaction
@@ -185,12 +279,8 @@ const config = createBeacon({
   DATABASE_URL: { type: "url", secret: true },
 });
 
-try {
-  config.ensure();
-} catch (err) {
-  // Error messages will show [REDACTED] instead of actual secret values
-  console.error(err.message);
-}
+config.ensure();
+// Error messages never show API_KEY or DATABASE_URL values
 ```
 
 ### Custom error handling
@@ -210,35 +300,27 @@ try {
 }
 ```
 
-### Using Zod schemas directly
-
-```ts
-import { createBeacon } from "@remba/beacon";
-import { z } from "zod";
-
-const config = createBeacon({
-  PORT: { schema: z.coerce.number().positive().max(9999), default: 3000 },
-  WHITELIST: { schema: z.string().regex(/^[\d,]+$/) },
-});
-```
-
 ### Production profile
 
 ```ts
-const config = createBeacon({
-  schema: {
+const config = createBeacon(
+  {
     DB_HOST: { type: "string", default: "localhost" },
     DB_PORT: { type: "port", default: 5432 },
   },
-  profile: "production",
-  profiles: {
-    production: {
-      DB_HOST: { type: "host", required: true },
-      DB_PORT: { type: "port", required: true },
+  {
+    profile: "production",
+    profiles: {
+      production: {
+        DB_HOST: { type: "host", required: true },
+        DB_PORT: { type: "port", required: true },
+      },
     },
-  },
-});
+  }
+);
 ```
+
+---
 
 ## Roadmap
 
@@ -248,8 +330,9 @@ const config = createBeacon({
 - Missing variable detection (aggregated errors)
 - Secrets redaction in errors and logs
 - Local/staging/production profiles
-- `.env.example` generation (CLI)
+- `.env.example` generation via CLI
 - `beacon check` CLI command
+- Coloured CLI output with suggestions
 
 **V1**
 
@@ -269,10 +352,22 @@ const config = createBeacon({
 - GitHub Actions integration
 - Remba Cloud dashboard
 
+---
+
 ## Related Packages
 
 - [@remba/catalog](https://github.com/joinremba/catalog) — Production-ready logging and error event layer built on Pino.
 - [@remba/gate](https://github.com/joinremba/gate) — API safety layer: validation, responses, idempotency, rate limiting, and API keys.
+
+## Social Preview
+
+For sharing on X (Twitter) and other social platforms, use `assets/og-image.svg` as the repository's social preview image in GitHub repo settings:
+
+1. Go to your repo **Settings** → **Social preview** → **Upload image**
+2. Select `assets/og-image.svg`
+3. Save
+
+This will be used whenever your repo link is shared on social media, Slack, or Discord.
 
 ## Contributing
 
