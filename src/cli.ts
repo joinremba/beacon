@@ -13,6 +13,7 @@ interface ParsedArgs {
   profile?: string;
   key?: string;
   input?: string;
+  allProfiles: boolean;
   wantsHelp: boolean;
   helpTopic: string;
 }
@@ -21,9 +22,10 @@ function parseArgs(argv: string[]): ParsedArgs {
   const args: ParsedArgs = {
     command: "",
     configPath: "",
-    output: ".env.example",
+    output: "",
     wantsHelp: false,
     helpTopic: "",
+    allProfiles: false,
   };
 
   let i = 0;
@@ -52,6 +54,8 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (arg === "--profile") {
       i++;
       args.profile = argv[i] ?? undefined;
+    } else if (arg === "--all-profiles") {
+      args.allProfiles = true;
     } else if (arg === "--key") {
       i++;
       args.key = argv[i] ?? undefined;
@@ -80,6 +84,13 @@ async function main() {
   }
 
   if (args.command === "") {
+    if (args.configPath || args.profile || args.key || args.input || args.allProfiles) {
+      console.error(
+        ` ${icon.fail} Missing command. Use ${color.cyan("beacon <command> [options]")}`
+      );
+      console.error(`     Run ${color.cyan("beacon --help")} to see available commands`);
+      process.exit(1);
+    }
     printHelp("");
     return;
   }
@@ -118,25 +129,61 @@ async function handleInit(args: ParsedArgs) {
 
   try {
     config = await loadConfig(args.configPath || undefined);
-  } catch {
+  } catch (err) {
+    if (args.configPath) {
+      console.error(` ${icon.fail} ${(err as Error).message}`);
+      process.exit(1);
+    }
     config = { schema: {} };
+    console.warn(` ${icon.info} No config file found. Creating ${color.bold(".beaconrc.json")}...`);
+    const template = {
+      schema: {
+        DATABASE_URL: { type: "url", required: true, description: "PostgreSQL connection string" },
+        PORT: { type: "port", default: 3000, description: "HTTP server port" },
+      },
+      profiles: {
+        production: {
+          DB_HOST: { type: "host", required: true, description: "Production DB hostname" },
+        },
+        staging: {
+          DB_HOST: { type: "host", required: true, description: "Staging DB hostname" },
+        },
+      },
+    };
+    await Bun.write(".beaconrc.json", JSON.stringify(template, null, 2) + "\n");
+    console.log(` ${icon.pass} Created ${color.bold(".beaconrc.json")}`);
+    console.log(`     Edit it to define your schema and profiles, then run:`);
+    console.log(
+      `       ${color.cyan("bunx beacon init")}                      ${color.grey("# default profile")}`
+    );
+    console.log(
+      `       ${color.cyan("bunx beacon init --profile production")}  ${color.grey("# production")}`
+    );
+    console.log(
+      `       ${color.cyan("bunx beacon init --all-profiles")}        ${color.grey("# all profiles")}`
+    );
+    process.exit(0);
   }
 
-  const profile = args.profile;
-  const example = generateEnvExample(config, profile);
-  await Bun.write(args.output, example);
-  console.log(` ${icon.pass} Generated ${color.bold(args.output)}`);
-  if (profile) {
-    console.log(`     Profile: ${color.cyan(profile)}`);
+  const profilesToGenerate = args.allProfiles
+    ? [undefined, ...Object.keys(config.profiles ?? {})]
+    : [args.profile];
+
+  for (const profile of profilesToGenerate) {
+    const output = profile
+      ? args.output || `.env.example.${profile}`
+      : args.output || ".env.example";
+    const example = generateEnvExample(config, profile);
+    await Bun.write(output, example);
+    console.log(` ${icon.pass} Generated ${color.bold(output)}`);
+    if (profile) {
+      console.log(`     Profile: ${color.cyan(profile)}`);
+    }
   }
 
-  const count = Object.keys(
-    profile && config.profiles?.[profile]
-      ? { ...config.schema, ...config.profiles[profile] }
-      : config.schema
-  ).length;
-  if (count > 0) {
-    console.log(`     ${count} variable(s) documented`);
+  const schemaKeys = Object.keys(config.schema).length;
+  if (schemaKeys > 0) {
+    console.log(`     ${schemaKeys} variable(s) documented`);
   }
   process.exit(0);
 }
@@ -394,14 +441,16 @@ ${color.bold("DESCRIPTION")}
 
 ${color.bold("OPTIONS")}
   -c, --config <path>  Path to config file
-                       ${color.dim("(default: .beaconrc.json or beacon.config.json)")}
+                        ${color.dim("(default: .beaconrc.json or beacon.config.json)")}
   -o, --output <path>  Output file for init
-                       ${color.dim("(default: .env.example)")}
-  --profile <name>     Profile to merge (staging, production, etc.)
+                        ${color.dim("(default: .env.example or .env.example.<profile>)")}
+  --profile <name>     Generate for a specific profile
+  --all-profiles       Generate .env.example for every profile
 
 ${color.bold("EXAMPLES")}
   beacon init                              ${color.grey("# generate .env.example")}
-  beacon init --profile production         ${color.grey("# merge production profile")}
+  beacon init --profile production         ${color.grey("# generate .env.example.production")}
+  beacon init --all-profiles               ${color.grey("# generate for all profiles")}
   beacon init -c ./config/beacon.json      ${color.grey("# custom config path")}
 `);
     return;
