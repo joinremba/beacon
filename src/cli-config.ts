@@ -1,10 +1,11 @@
 import { z } from "zod";
-import type { SchemaEntry } from "./types";
+import type { FeatureGate, SchemaEntry } from "./types";
 
 export interface BeaconConfigFile {
   schema: Record<string, SchemaEntry>;
   profile?: string;
   profiles?: Record<string, Record<string, SchemaEntry>>;
+  features?: Record<string, FeatureGate>;
 }
 
 export async function loadConfig(path?: string): Promise<BeaconConfigFile> {
@@ -26,6 +27,10 @@ export async function loadConfig(path?: string): Promise<BeaconConfigFile> {
 
         if (parsed.profiles) {
           config.profiles = parsed.profiles;
+        }
+
+        if (parsed.features) {
+          config.features = parsed.features;
         }
 
         return config;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type {
   Beacon as BeaconInterface,
   BeaconOptions,
+  FeatureGate,
   FieldDefinition,
   FieldDefinitionWithSchema,
   SchemaEntry,
@@ -9,7 +10,14 @@ import type {
 } from "./types";
 import { ConfigError, ConfigValidationError } from "./errors";
 
-export type { BeaconOptions, FieldDefinition, FieldDefinitionWithSchema, SchemaEntry, FieldType };
+export type {
+  BeaconOptions,
+  FeatureGate,
+  FieldDefinition,
+  FieldDefinitionWithSchema,
+  SchemaEntry,
+  FieldType,
+};
 export { ConfigError, ConfigValidationError };
 export type { BeaconInterface as Beacon };
 
@@ -93,6 +101,22 @@ const resolveEntry = (
 
 const SECRET_CENSOR = "[REDACTED]";
 
+const featureEnvName = (name: string): string =>
+  `FEATURE_${name
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .toUpperCase()}`;
+
+const parseEnvBoolean = (val: string): boolean => val === "true" || val === "1" || val === "yes";
+
+const featureRollup = (name: string): number => {
+  let hash = 5381;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) + hash + name.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash % 10000) / 10000;
+};
+
 export function createBeacon(
   schema: Record<string, SchemaEntry>,
   options?: BeaconOptions
@@ -111,6 +135,7 @@ export function createBeacon(
   const secretKeys = new Set(resolved.filter((e) => e.secret).map((e) => e.key));
 
   let validated: Record<string, unknown> | null = null;
+  const features: Record<string, FeatureGate> = options?.features ?? {};
 
   const beacon: BeaconInterface = {
     ensure(): BeaconInterface {
@@ -188,6 +213,21 @@ export function createBeacon(
         map[key] = true;
       }
       return map;
+    },
+
+    isEnabled(feature: string): boolean {
+      const envName = featureEnvName(feature);
+      const envVal = process.env[envName];
+      if (envVal !== undefined && envVal !== "") {
+        return parseEnvBoolean(envVal);
+      }
+      const gate = features[feature];
+      if (!gate) return false;
+      if (!gate.enabled) return false;
+      if (gate.rollout !== undefined) {
+        return featureRollup(feature) < gate.rollout;
+      }
+      return true;
     },
   };
 

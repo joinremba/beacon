@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Feature gates: `config.isEnabled(name)` with `features` config and `FEATURE_<NAME>` env overrides
+
+## [0.1.0] - 2026-06-12
+
+### Added
+
 - Initial release
 - Environment variable validation with Zod schemas
 - Secrets redaction from logs and error messages
-- Feature gates with typed, validated flags
+- CLI: `beacon init` and `beacon check` commands
+- Profiles for environment-specific config
+- Config file support (`.beaconrc.json` / `beacon.config.json`)
 - Zero runtime overhead — validations run once at boot

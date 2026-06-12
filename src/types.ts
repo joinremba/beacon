@@ -29,13 +29,21 @@ export interface FieldDefinitionWithSchema {
 
 export type SchemaEntry = FieldDefinition | FieldDefinitionWithSchema;
 
+export interface FeatureGate {
+  enabled: boolean;
+  rollout?: number;
+  description?: string;
+}
+
 export interface BeaconOptions {
   profile?: string;
   profiles?: Record<string, Record<string, SchemaEntry>>;
+  features?: Record<string, FeatureGate>;
 }
 
 export interface Beacon {
   ensure(): Beacon;
   get<T = unknown>(key: string): T;
   readonly secret: Record<string, boolean>;
+  isEnabled(feature: string): boolean;
 }

@@ -176,3 +176,50 @@ test("tracks secret keys", () => {
 
   expect(config.secret).toEqual({ API_KEY: true });
 });
+
+test("isEnabled returns false for undefined feature", () => {
+  const config = createBeacon({ PORT: { type: "port", default: 3000 } });
+  expect(config.isEnabled("nonexistent")).toBe(false);
+});
+
+test("isEnabled returns true for enabled feature", () => {
+  const config = createBeacon(
+    { PORT: { type: "port", default: 3000 } },
+    { features: { newDashboard: { enabled: true } } }
+  );
+  expect(config.isEnabled("newDashboard")).toBe(true);
+});
+
+test("isEnabled returns false for disabled feature", () => {
+  const config = createBeacon(
+    { PORT: { type: "port", default: 3000 } },
+    { features: { darkMode: { enabled: false } } }
+  );
+  expect(config.isEnabled("darkMode")).toBe(false);
+});
+
+test("isEnabled respects env override", () => {
+  const prev = process.env.FEATURE_NEW_DASHBOARD;
+  try {
+    process.env.FEATURE_NEW_DASHBOARD = "false";
+    const config = createBeacon(
+      { PORT: { type: "port", default: 3000 } },
+      { features: { newDashboard: { enabled: true } } }
+    );
+    expect(config.isEnabled("newDashboard")).toBe(false);
+  } finally {
+    if (prev === undefined) {
+      delete process.env.FEATURE_NEW_DASHBOARD;
+    } else {
+      process.env.FEATURE_NEW_DASHBOARD = prev;
+    }
+  }
+});
+
+test("isEnabled uses rollout when enabled is true", () => {
+  const config = createBeacon(
+    { PORT: { type: "port", default: 3000 } },
+    { features: { gradual: { enabled: true, rollout: 1 } } }
+  );
+  expect(config.isEnabled("gradual")).toBe(true);
+});

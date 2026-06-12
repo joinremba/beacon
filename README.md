@@ -162,6 +162,7 @@ The default export. Accepts an env schema and optional configuration.
 | `schema`   | `Record<string, SchemaEntry>`                 | Map of environment variable names to field definitions.     |
 | `profile`  | `string`                                      | Active profile name. Merges matching entry from `profiles`. |
 | `profiles` | `Record<string, Record<string, SchemaEntry>>` | Named profile overrides.                                    |
+| `features` | `Record<string, FeatureGate>`                 | Feature gates for runtime toggles.                          |
 
 **SchemaEntry** can be either:
 
@@ -206,6 +207,7 @@ A config instance with:
 | `ensure()`        | Validates all env vars. Throws `ConfigValidationError` on failure. Returns the config instance for chaining. |
 | `get<T>(key): T`  | Returns the validated value for the given key. Throws if called before `ensure()`.                           |
 | `secret`          | Returns a `Record<string, boolean>` of which keys are marked as secrets.                                     |
+| `isEnabled(feature): boolean` | Checks if a feature gate is enabled. Respects env overrides (`FEATURE_<NAME>`).              |
 
 ### TypeScript Types
 
@@ -216,6 +218,7 @@ import type {
   SchemaEntry,
   FieldDefinition,
   FieldType,
+  FeatureGate,
   ConfigError,
   ConfigValidationError,
 } from "@joinremba/beacon";
@@ -245,6 +248,10 @@ Used by the CLI for `init` and `check` commands:
     "production": {
       "DB_HOST": { "type": "host", "required": true, "description": "Production DB hostname" }
     }
+  },
+  "features": {
+    "newDashboard": { "enabled": true, "description": "New dashboard UI" },
+    "darkMode": { "enabled": false }
   }
 }
 ```
@@ -320,6 +327,41 @@ const config = createBeacon(
 );
 ```
 
+### Feature Gates
+
+Toggle features on/off without redeploying. Define gates in the `features` option and check them with `isEnabled()`:
+
+```ts
+const config = createBeacon(
+  { DATABASE_URL: { type: "url" } },
+  {
+    features: {
+      newDashboard: { enabled: true },
+      darkMode: { enabled: false },
+      gradualRollout: { enabled: true, rollout: 0.5 },
+    },
+  }
+);
+
+config.isEnabled("newDashboard");    // true
+config.isEnabled("darkMode");        // false
+config.isEnabled("gradualRollout");  // true for ~50% of deployments (deterministic hash)
+```
+
+**Env overrides** — Any feature can be toggled at runtime via `FEATURE_<NAME>`:
+
+```sh
+FEATURE_DARK_MODE=true bun start
+```
+
+CamelCase feature names map to `FEATURE_` prefixed uppercase with underscores (`newDashboard` → `FEATURE_NEW_DASHBOARD`). Accepted truthy values: `true`, `1`, `yes`. Everything else is `false`.
+
+| Option     | Type      | Default | Description                                        |
+| ---------- | --------- | ------- | -------------------------------------------------- |
+| `enabled`  | `boolean` | `false` | Whether the gate is on by default.                 |
+| `rollout`  | `number`  | —       | Percentage of deployments (0–1). Uses deterministic hash. |
+| `description` | `string` | —   | Human-readable description.                        |
+
 ---
 
 ## Roadmap
@@ -336,7 +378,7 @@ const config = createBeacon(
 
 **V1**
 
-- Feature gates from local config
+- Feature gates from local config ✅
 - Kill-switch flags
 - Encrypted `.env` support
 - Secret rotation checklist
