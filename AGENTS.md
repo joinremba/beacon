@@ -1,6 +1,6 @@
 # @remba/beacon
 
-Validate environment variables, config, secrets, and runtime feature gates before production breaks.
+Runtime configuration, environment validation, secrets, and feature gates for TypeScript backends.
 
 ## Commands
 
@@ -15,34 +15,39 @@ Validate environment variables, config, secrets, and runtime feature gates befor
 
 ## Stack
 
-- TypeScript 6 (strict)
-- Bun runtime (>=1.3.1)
-- Zod ^4.4.2 for runtime validation
+- TypeScript 6 (strict), Bun runtime, Zod ^4.4.2
 - ESLint 8 + Prettier for code quality
-- `bun:test` for testing
 
-## Key patterns
+## Key API
 
-- All source lives in `src/`
-- Tests are colocated with source: `src/*.test.ts`
-- Zod schemas validate environment variables and feature flags at boot
-- No runtime dependencies beyond Zod (pure TypeScript library)
-- Config is validated eagerly via `ensure()`, then accessed as plain properties
-- Secrets are redacted from error messages automatically
+- `createBeacon(schema, options?)` — Main export. First arg is a flat env schema. Second optional arg accepts `{ profile, profiles }`.
+- `config.ensure()` — Validates all env vars against their schemas. Throws `ConfigValidationError` with all errors collected.
+- `config.get<T>(key)` — Returns the validated value. Throws if called before `ensure()`.
+- `config.secret` — Read-only `Record<string, boolean>` of which keys are marked as secrets.
+
+## Patterns
+
+- All source in `src/`
+- Tests colocated with source: `src/*.test.ts`
+- String-based field types (`"url"`, `"port"`, `"enum"`, etc.) map to Zod schemas internally
+- Zod schemas also accepted directly: `{ schema: z.string().min(1) }`
+- `required: true` by default; set `required: false` or provide `default` for optional vars
+- `secret: true` redacts values in error messages
+- CLI scaffold exists in `src/cli.ts` (`beacon init`, `beacon check`)
 - No `any` types allowed (enforced by ESLint)
 
-## npm publishing
+## npm Publishing
 
-- `package.json` is preconfigured with `"publishConfig": { "access": "public" }`
-- CI publishes to npm on `v*` git tags via the `publish.yml` workflow
-- Publishing uses `npm publish --provenance`
-- `NPM_TOKEN` repository secret must be set in GitHub
+- `publishConfig.access: public`
+- CI publishes on `v*` tags via `npm publish --provenance`
+- `NPM_TOKEN` secret required in GitHub
 
-## Config reference
+## Config Reference
 
-| Field        | Value                                       |
-| ------------ | ------------------------------------------- |
-| Package name | `@remba/beacon`                             |
-| Licence      | MIT                                         |
-| Engine       | `bun >=1.3.1`                               |
-| Scripts      | test, typecheck, lint, format, check, build |
+| Field        | Value                     |
+| ------------ | ------------------------- |
+| Package name | `@remba/beacon`           |
+| Licence      | MIT                       |
+| Engine       | `bun >=1.3.1`             |
+| Runtime deps | zod                       |
+| Bin          | `beacon` → `./src/cli.ts` |

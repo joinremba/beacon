@@ -1,6 +1,178 @@
-import { expect, test } from "bun:test";
-import { beacon } from "./index";
+import { expect, test, beforeAll } from "bun:test";
+import { createBeacon, ConfigValidationError } from "./index";
+import { z } from "zod";
 
-test("beacon", () => {
-  expect(beacon()).toBe("beacon");
+const zodStringMin3 = z.string().min(3);
+
+const ORIGINAL_ENV = { ...process.env };
+
+beforeAll(() => {
+  process.env = { ...ORIGINAL_ENV };
+});
+
+test("returns typed config values after ensure()", () => {
+  process.env.DATABASE_URL = "https://example.com/db";
+  process.env.REDIS_URL = "https://example.com/redis";
+
+  const config = createBeacon({
+    DATABASE_URL: { type: "url", required: true },
+    REDIS_URL: { type: "url", required: true },
+  });
+
+  config.ensure();
+  expect(config.get<string>("DATABASE_URL")).toBe("https://example.com/db");
+  expect(config.get<string>("REDIS_URL")).toBe("https://example.com/redis");
+});
+
+test("throws ValidationError for missing required vars", () => {
+  delete process.env.MISSING_VAR;
+
+  const config = createBeacon({
+    MISSING_VAR: { type: "string", required: true },
+  });
+
+  expect(() => config.ensure()).toThrow(ConfigValidationError);
+});
+
+test("does not throw for optional vars with defaults", () => {
+  delete process.env.MY_PORT;
+
+  const config = createBeacon({
+    MY_PORT: { type: "port", default: 3000 },
+  });
+
+  config.ensure();
+  expect(config.get<number>("MY_PORT")).toBe(3000);
+});
+
+test("coerces number types", () => {
+  process.env.MY_NUMBER = "42";
+
+  const config = createBeacon({
+    MY_NUMBER: { type: "number" },
+  });
+
+  config.ensure();
+  expect(config.get<number>("MY_NUMBER")).toBe(42);
+});
+
+test("coerces boolean types", () => {
+  process.env.FEATURE_X = "true";
+  process.env.FEATURE_Y = "false";
+  process.env.FEATURE_Z = "1";
+
+  const config = createBeacon({
+    FEATURE_X: { type: "boolean" },
+    FEATURE_Y: { type: "boolean" },
+    FEATURE_Z: { type: "boolean" },
+  });
+
+  config.ensure();
+  expect(config.get<boolean>("FEATURE_X")).toBe(true);
+  expect(config.get<boolean>("FEATURE_Y")).toBe(false);
+  expect(config.get<boolean>("FEATURE_Z")).toBe(true);
+});
+
+test("validates enum values", () => {
+  process.env.NODE_ENV = "production";
+
+  const config = createBeacon({
+    NODE_ENV: {
+      type: "enum",
+      values: ["development", "staging", "production"],
+    },
+  });
+
+  config.ensure();
+  expect(config.get<string>("NODE_ENV")).toBe("production");
+});
+
+test("throws for invalid enum values", () => {
+  process.env.NODE_ENV = "invalid";
+
+  const config = createBeacon({
+    NODE_ENV: {
+      type: "enum",
+      values: ["development", "production"],
+    },
+  });
+
+  expect(() => config.ensure()).toThrow();
+});
+
+test("validates port range", () => {
+  process.env.PORT = "99999";
+
+  const config = createBeacon({
+    PORT: { type: "port" },
+  });
+
+  expect(() => config.ensure()).toThrow();
+});
+
+test("throws when accessing before ensure()", () => {
+  const config = createBeacon({
+    DB_URL: { type: "url", required: true },
+  });
+
+  expect(() => config.get("DB_URL")).toThrow("Call beacon.ensure()");
+});
+
+test("uses profile overrides when profile is set", () => {
+  process.env.DB_HOST = "prod.example.com";
+
+  const config = createBeacon(
+    {
+      DB_HOST: { type: "string" },
+    },
+    {
+      profile: "production",
+      profiles: {
+        production: {
+          DB_HOST: { type: "host" },
+        },
+      },
+    }
+  );
+
+  config.ensure();
+  expect(config.get<string>("DB_HOST")).toBe("prod.example.com");
+});
+
+test("accepts Zod schemas directly", () => {
+  process.env.ZOD_VAR = "hello";
+
+  const config = createBeacon({
+    ZOD_VAR: { schema: zodStringMin3 },
+  });
+
+  config.ensure();
+  expect(config.get<string>("ZOD_VAR")).toBe("hello");
+});
+
+test("collects all errors before throwing", () => {
+  delete process.env.VAR_A;
+  delete process.env.VAR_B;
+
+  const config = createBeacon({
+    VAR_A: { type: "string", required: true },
+    VAR_B: { type: "number", required: true },
+  });
+
+  try {
+    config.ensure();
+    expect.unreachable();
+  } catch (err) {
+    expect(err).toBeInstanceOf(ConfigValidationError);
+    expect((err as ConfigValidationError).errors).toHaveLength(2);
+  }
+});
+
+test("tracks secret keys", () => {
+  const config = createBeacon({
+    API_KEY: { type: "string", secret: true },
+    DB_URL: { type: "url" },
+  });
+
+  expect(config.secret).toEqual({ API_KEY: true });
 });

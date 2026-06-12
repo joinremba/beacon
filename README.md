@@ -9,10 +9,14 @@ Beacon helps TypeScript teams boot applications safely by validating environment
 
 ## Features
 
-- **Schema-based validation** — Define Zod schemas for your environment and config. Catch missing or malformed values at startup.
-- **Secrets redaction** — Keep secrets out of logs and error messages automatically.
-- **Feature gates** — Toggle runtime features with typed, validated flags.
+- **Schema-based validation** — Define your env schema with simple string types (`"url"`, `"port"`, `"enum"`, etc.) or raw Zod schemas. Catch missing or malformed values at startup.
+- **Missing variable detection** — Know exactly which variables are missing before your app starts. All errors are collected and reported together, not one at a time.
+- **Redacted config logging** — Keep secrets out of logs and error messages automatically. Secret values are replaced with `[REDACTED]`.
+- **Local/staging/production profiles** — Define different schemas per environment. Override or extend the base schema for each deployment target.
+- **`.env.example` generation** — Generate an `.env.example` file from your schema (via CLI).
+- **CLI** — Run `beacon init` to scaffold config and `beacon check` to validate before deploying.
 - **Zero runtime overhead** — Validations run once at boot. After that, access is plain property reads.
+- **Framework-agnostic** — Works with any TypeScript backend: Bun, Node.js, Express, Hono, Fastify, Next.js, Elysia.
 
 ## Installation
 
@@ -23,142 +27,252 @@ bun add @remba/beacon
 ## Quick Start
 
 ```ts
-import { createConfig } from "@remba/beacon";
+import { createBeacon } from "@remba/beacon";
 
-const config = createConfig({
-  env: {
-    DATABASE_URL: { schema: z.string().url(), secret: true },
-    PORT: { schema: z.coerce.number().default(3000) },
+const config = createBeacon({
+  DATABASE_URL: { type: "url", required: true },
+  REDIS_URL: { type: "url", required: true },
+  NODE_ENV: {
+    type: "enum",
+    values: ["development", "test", "staging", "production"],
+    default: "development",
   },
-  features: {
-    NEW_ONBOARDING: { default: false },
-  },
+  PORT: { type: "port", default: 3000 },
+  API_KEY: { type: "string", required: true, secret: true },
 });
 
-config.ensure(); // throws if any required env var is missing
-config.DATABASE_URL; // string
-config.isEnabled("NEW_ONBOARDING"); // false
+config.ensure();
+// config is now safe to use:
+const dbUrl = config.get<string>("DATABASE_URL");
+```
+
+If any variable is missing or invalid, `ensure()` throws a `ConfigValidationError` with all issues collected — so you fix everything at once, not iteratively.
+
+## CLI
+
+Beacon ships with a CLI for development workflows:
+
+```sh
+# Coming soon
+bunx beacon init           # Generate .env.example from your schema
+bunx beacon check          # Validate current environment
+bunx beacon check -c ./src/config.ts
+```
+
+## Profiles
+
+Define different schemas per environment. The profile merges over the base schema:
+
+```ts
+const config = createBeacon({
+  schema: {
+    DB_HOST: { type: "string", default: "localhost" },
+    DB_PORT: { type: "port", default: 5432 },
+  },
+  profile: process.env.BEACON_PROFILE,
+  profiles: {
+    staging: {
+      DB_HOST: { type: "string", required: true },
+    },
+    production: {
+      DB_HOST: { type: "host", required: true },
+      DB_PORT: { type: "port", required: true },
+    },
+  },
+});
 ```
 
 ## API Reference
 
-### `createConfig(options)`
+### `createBeacon(options)`
 
-The default export. Accepts a `ConfigOptions` object and returns a typed config proxy.
+The default export. Accepts a `BeaconOptions` object and returns a config instance.
 
 **Parameters**
 
-| Option     | Type             | Description                                   |
-| ---------- | ---------------- | --------------------------------------------- |
-| `env`      | `EnvSchemaMap`   | Map of environment variable names to schemas. |
-| `features` | `FeatureFlagMap` | Map of feature flag names to defaults.        |
+| Option     | Type                                          | Description                                                 |
+| ---------- | --------------------------------------------- | ----------------------------------------------------------- |
+| `schema`   | `Record<string, SchemaEntry>`                 | Map of environment variable names to field definitions.     |
+| `profile`  | `string`                                      | Active profile name. Merges matching entry from `profiles`. |
+| `profiles` | `Record<string, Record<string, SchemaEntry>>` | Named profile overrides.                                    |
+
+**SchemaEntry** can be either:
+
+1. **String-based** — Simple type names for everyday use:
+
+```ts
+{
+  type: "url"; // z.string().url()
+  type: "number"; // z.coerce.number()
+  type: "integer"; // z.coerce.number().int()
+  type: "boolean"; // "true"/"false"/"1"/"0"
+  type: "port"; // number between 1-65535
+  type: "enum"; // requires values[]
+  type: "email"; // z.string().email()
+  type: "host"; // z.string()
+  type: "string"; // z.string()
+}
+```
+
+| Field         | Type        | Default | Description                          |
+| ------------- | ----------- | ------- | ------------------------------------ |
+| `type`        | `FieldType` | —       | The type to validate against.        |
+| `required`    | `boolean`   | `true`  | Whether the variable must be set.    |
+| `default`     | `unknown`   | —       | Default value if not set.            |
+| `secret`      | `boolean`   | `false` | Redact value from errors and logs.   |
+| `values`      | `string[]`  | —       | Allowed values (only for `"enum"`).  |
+| `description` | `string`    | —       | Used when generating `.env.example`. |
+
+2. **Zod schema** — Advanced users can pass Zod schemas directly:
+
+```ts
+{
+  schema: z.string().min(1).max(255),
+  required: true,
+  secret: false,
+}
+```
 
 **Returns**
 
-A config object with:
+A config instance with:
 
-- **`ensure()`** — Validates all environment variables against their schemas. Throws an `AggregateError` with all validation errors if any are invalid. Call once at startup.
-- **Property access** — Validated config values are accessible directly as properties (e.g. `config.DATABASE_URL`).
-- **`isEnabled(feature: string): boolean`** — Checks whether a named feature gate is enabled.
+| Method / Property | Description                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `ensure()`        | Validates all env vars. Throws `ConfigValidationError` on failure. Returns the config instance for chaining. |
+| `get<T>(key): T`  | Returns the validated value for the given key. Throws if called before `ensure()`.                           |
+| `secret`          | Returns a `Record<string, boolean>` of which keys are marked as secrets.                                     |
 
 ### TypeScript Types
 
 ```ts
-import type { ConfigOptions, Config, EnvSchemaMap, FeatureFlagMap } from "@remba/beacon";
+import type {
+  BeaconOptions,
+  Beacon,
+  SchemaEntry,
+  FieldDefinition,
+  FieldType,
+  ConfigError,
+  ConfigValidationError,
+} from "@remba/beacon";
 ```
-
-| Type             | Description                                         |
-| ---------------- | --------------------------------------------------- |
-| `ConfigOptions`  | Input options for `createConfig`.                   |
-| `Config`         | Return type of `createConfig`.                      |
-| `EnvSchemaMap`   | Record of env variable names to `EnvSchemaEntry`.   |
-| `FeatureFlagMap` | Record of feature flag names to `FeatureFlagEntry`. |
 
 ## Examples
 
 ### Basic env validation
 
 ```ts
-import { createConfig } from "@remba/beacon";
-import { z } from "zod";
+import { createBeacon } from "@remba/beacon";
 
-const config = createConfig({
-  env: {
-    NODE_ENV: { schema: z.enum(["development", "production", "test"]) },
-    PORT: { schema: z.coerce.number().positive().default(3000) },
+const config = createBeacon({
+  NODE_ENV: {
+    type: "enum",
+    values: ["development", "production", "test"],
+    default: "development",
   },
+  PORT: { type: "port", default: 3000 },
 });
 
 config.ensure();
-console.log(config.PORT); // 3000 (or the value of $PORT)
+console.log(config.get("PORT")); // 3000 (or the value of $PORT)
 ```
 
 ### With secrets redaction
 
 ```ts
-const config = createConfig({
-  env: {
-    API_KEY: { schema: z.string(), secret: true },
-    DATABASE_URL: { schema: z.string().url(), secret: true },
-  },
+const config = createBeacon({
+  API_KEY: { type: "string", secret: true },
+  DATABASE_URL: { type: "url", secret: true },
 });
 
-config.ensure();
-// config.API_KEY and config.DATABASE_URL are redacted in error messages and logs
-```
-
-### Feature gates in practice
-
-```ts
-const config = createConfig({
-  features: {
-    DARK_MODE: { default: false },
-    NEW_DASHBOARD: { default: true },
-  },
-});
-
-if (config.isEnabled("NEW_DASHBOARD")) {
-  // render new dashboard
+try {
+  config.ensure();
+} catch (err) {
+  // Error messages will show [REDACTED] instead of actual secret values
+  console.error(err.message);
 }
 ```
 
 ### Custom error handling
 
 ```ts
+import { ConfigValidationError } from "@remba/beacon";
+
 try {
   config.ensure();
 } catch (err) {
-  if (err instanceof AggregateError) {
+  if (err instanceof ConfigValidationError) {
     for (const issue of err.errors) {
-      console.error(`Config error: ${issue.message}`);
+      console.error(`[${issue.key}] ${issue.message}`);
     }
   }
   process.exit(1);
 }
 ```
 
-### Nested config
+### Using Zod schemas directly
 
 ```ts
-const config = createConfig({
-  env: {
-    REDIS_HOST: { schema: z.string().default("localhost") },
-    REDIS_PORT: { schema: z.coerce.number().default(6379) },
-    DB_HOST: { schema: z.string() },
-    DB_PORT: { schema: z.coerce.number() },
+import { createBeacon } from "@remba/beacon";
+import { z } from "zod";
+
+const config = createBeacon({
+  PORT: { schema: z.coerce.number().positive().max(9999), default: 3000 },
+  WHITELIST: { schema: z.string().regex(/^[\d,]+$/) },
+});
+```
+
+### Production profile
+
+```ts
+const config = createBeacon({
+  schema: {
+    DB_HOST: { type: "string", default: "localhost" },
+    DB_PORT: { type: "port", default: 5432 },
+  },
+  profile: "production",
+  profiles: {
+    production: {
+      DB_HOST: { type: "host", required: true },
+      DB_PORT: { type: "port", required: true },
+    },
   },
 });
-
-config.ensure();
-
-const redis = { host: config.REDIS_HOST, port: config.REDIS_PORT };
-const db = { host: config.DB_HOST, port: config.DB_PORT };
 ```
+
+## Roadmap
+
+**MVP** (current)
+
+- Typed env validation with string-based types and Zod
+- Missing variable detection (aggregated errors)
+- Secrets redaction in errors and logs
+- Local/staging/production profiles
+- `.env.example` generation (CLI)
+- `beacon check` CLI command
+
+**V1**
+
+- Feature gates from local config
+- Kill-switch flags
+- Encrypted `.env` support
+- Secret rotation checklist
+- CI validation action
+- Docker/Kubernetes env checks
+- Config drift detection
+
+**V2**
+
+- Hosted team secret sync
+- Audit trail for config changes
+- Deployment provider integrations
+- GitHub Actions integration
+- Remba Cloud dashboard
 
 ## Related Packages
 
-- [@remba/catalog](https://github.com/joinremba/catalog) — Centralised service catalogue for your microservice architecture.
-- [@remba/gate](https://github.com/joinremba/gate) — Lightweight API gateway proxy for Bun servers.
+- [@remba/catalog](https://github.com/joinremba/catalog) — Production-ready logging and error event layer built on Pino.
+- [@remba/gate](https://github.com/joinremba/gate) — API safety layer: validation, responses, idempotency, rate limiting, and API keys.
 
 ## Contributing
 
