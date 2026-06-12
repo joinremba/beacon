@@ -46,7 +46,7 @@ Runtime configuration, environment validation, secrets, and feature gates for Ty
 
 | Field        | Value                     |
 | ------------ | ------------------------- |
-| Package name | `@joinremba/beacon`           |
+| Package name | `@joinremba/beacon`       |
 | Licence      | MIT                       |
 | Engine       | `bun >=1.3.1`             |
 | Runtime deps | zod                       |
