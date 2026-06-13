@@ -1,6 +1,6 @@
 {
   "name": "@joinremba/beacon",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Validate environment variables, config, secrets, and runtime feature gates before production breaks.",
   "type": "module",
   "main": "./src/index.ts",
@@ -68,6 +68,7 @@
     "bun": ">=1.3.1"
   },
   "dependencies": {
+    "@joinremba/core": "^0.4.0",
     "zod": "^4.4.2"
   },
   "devDependencies": {

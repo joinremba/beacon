@@ -75,6 +75,7 @@ export function createBeacon(
   schema: Record<string, SchemaEntry>,
   options?: BeaconOptions
 ): BeaconInterface {
+  const client = options?.client;
   const mergedSchema: Record<string, SchemaEntry> = { ...schema };
 
   if (options?.profile && options?.profiles?.[options.profile]) {
@@ -93,9 +94,22 @@ export function createBeacon(
   const killSwitches: Record<string, boolean> = options?.killSwitches ?? {};
 
   const beacon: BeaconInterface = {
-    ensure(options?: EnsureOptions): BeaconInterface {
+    async ensure(options?: EnsureOptions): Promise<BeaconInterface> {
       const strict = options?.strict ?? true;
       const errors: ConfigError[] = [];
+
+      if (client) {
+        try {
+          const remote = await client.getConfig();
+          for (const entry of remote) {
+            if (process.env[entry.key] !== undefined) continue;
+            if (mergedSchema[entry.key]) continue;
+            (validated ??= {})[entry.key] = entry.value;
+          }
+        } catch {
+          // Network error — fall back to local-only
+        }
+      }
 
       for (const { key, schema, required, secret, hasDefault } of resolved) {
         const raw = process.env[key];

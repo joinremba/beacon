@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-13
+
+### Added
+
+- `client?: Client` option to `createBeacon()` — accepts `@joinremba/core` client for remote config
+- Remote config merging: `ensure()` fetches `client.getConfig()` and fills keys not in schema/env
+- Shared `typeToSchema()` module (`src/schema.ts`) — single source of truth for field type coercion
+- CLI tests for `runCheck`, secret redaction, and env validation
+
+### Fixed
+
+- Zod schema entries with `.default()` now auto-detect the default in `resolveEntry()` (B1)
+- CLI no longer leaks secret values in validation error messages (B2)
+- Boolean fields now accept `"yes"` alongside `"true"` and `"1"` (B3)
+- Encryption uses HKDF-SHA256 key derivation instead of raw `slice(0, 32)` (B5)
+- Enum fields with missing/empty `values` now throw a descriptive error instead of a cryptic Zod crash (B6)
+- `ensure({ strict: false })` now applies defaults to missing vars before skipping (B9)
+- Tests restore `process.env` in `beforeEach` instead of `beforeAll` to prevent cross-test pollution (B8)
+
 ## [0.3.0] - 2026-06-12
 
 ### Added
@@ -23,23 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `beacon init --profile <name>` generates `.env.example.<profile>` — no more overwrites
 - `beacon init --all-profiles` generates one file per profile
 - Flags passed without a command (`beacon -c ./foo`) now show a "Missing command" error
-
-## [Unreleased]
-
-### Added
-
-- Shared `typeToSchema()` module (`src/schema.ts`) — single source of truth for field type coercion
-- CLI tests for `runCheck`, secret redaction, and env validation
-
-### Fixed
-
-- Zod schema entries with `.default()` now auto-detect the default in `resolveEntry()` (B1)
-- CLI no longer leaks secret values in validation error messages (B2)
-- Boolean fields now accept `"yes"` alongside `"true"` and `"1"` (B3)
-- Encryption uses HKDF-SHA256 key derivation instead of raw `slice(0, 32)` (B5)
-- Enum fields with missing/empty `values` now throw a descriptive error instead of a cryptic Zod crash (B6)
-- `ensure({ strict: false })` now applies defaults to missing vars before skipping (B9)
-- Tests restore `process.env` in `beforeEach` instead of `beforeAll` to prevent cross-test pollution (B8)
 
 ## [0.1.0] - 2026-06-12
 

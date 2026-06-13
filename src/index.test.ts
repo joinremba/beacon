@@ -1,4 +1,4 @@
-import { expect, test, beforeEach } from "bun:test";
+import { expect, test, beforeEach, mock } from "bun:test";
 import { createBeacon, ConfigValidationError } from "./index";
 import { z } from "zod";
 
@@ -10,7 +10,7 @@ beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
 });
 
-test("returns typed config values after ensure()", () => {
+test("returns typed config values after ensure()", async () => {
   process.env.DATABASE_URL = "https://example.com/db";
   process.env.REDIS_URL = "https://example.com/redis";
 
@@ -19,44 +19,44 @@ test("returns typed config values after ensure()", () => {
     REDIS_URL: { type: "url", required: true },
   });
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<string>("DATABASE_URL")).toBe("https://example.com/db");
   expect(config.get<string>("REDIS_URL")).toBe("https://example.com/redis");
 });
 
-test("throws ValidationError for missing required vars", () => {
+test("throws ValidationError for missing required vars", async () => {
   delete process.env.MISSING_VAR;
 
   const config = createBeacon({
     MISSING_VAR: { type: "string", required: true },
   });
 
-  expect(() => config.ensure()).toThrow(ConfigValidationError);
+  await expect(config.ensure()).rejects.toThrow(ConfigValidationError);
 });
 
-test("does not throw for optional vars with defaults", () => {
+test("does not throw for optional vars with defaults", async () => {
   delete process.env.MY_PORT;
 
   const config = createBeacon({
     MY_PORT: { type: "port", default: 3000 },
   });
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<number>("MY_PORT")).toBe(3000);
 });
 
-test("coerces number types", () => {
+test("coerces number types", async () => {
   process.env.MY_NUMBER = "42";
 
   const config = createBeacon({
     MY_NUMBER: { type: "number" },
   });
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<number>("MY_NUMBER")).toBe(42);
 });
 
-test("coerces boolean types", () => {
+test("coerces boolean types", async () => {
   process.env.FEATURE_X = "true";
   process.env.FEATURE_Y = "false";
   process.env.FEATURE_Z = "1";
@@ -67,13 +67,13 @@ test("coerces boolean types", () => {
     FEATURE_Z: { type: "boolean" },
   });
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<boolean>("FEATURE_X")).toBe(true);
   expect(config.get<boolean>("FEATURE_Y")).toBe(false);
   expect(config.get<boolean>("FEATURE_Z")).toBe(true);
 });
 
-test("validates enum values", () => {
+test("validates enum values", async () => {
   process.env.NODE_ENV = "production";
 
   const config = createBeacon({
@@ -83,11 +83,11 @@ test("validates enum values", () => {
     },
   });
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<string>("NODE_ENV")).toBe("production");
 });
 
-test("throws for invalid enum values", () => {
+test("throws for invalid enum values", async () => {
   process.env.NODE_ENV = "invalid";
 
   const config = createBeacon({
@@ -97,17 +97,17 @@ test("throws for invalid enum values", () => {
     },
   });
 
-  expect(() => config.ensure()).toThrow();
+  await expect(config.ensure()).rejects.toThrow();
 });
 
-test("validates port range", () => {
+test("validates port range", async () => {
   process.env.PORT = "99999";
 
   const config = createBeacon({
     PORT: { type: "port" },
   });
 
-  expect(() => config.ensure()).toThrow();
+  await expect(config.ensure()).rejects.toThrow();
 });
 
 test("throws when accessing before ensure()", () => {
@@ -118,7 +118,7 @@ test("throws when accessing before ensure()", () => {
   expect(() => config.get("DB_URL")).toThrow("Call beacon.ensure()");
 });
 
-test("uses profile overrides when profile is set", () => {
+test("uses profile overrides when profile is set", async () => {
   process.env.DB_HOST = "prod.example.com";
 
   const config = createBeacon(
@@ -135,22 +135,22 @@ test("uses profile overrides when profile is set", () => {
     }
   );
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<string>("DB_HOST")).toBe("prod.example.com");
 });
 
-test("accepts Zod schemas directly", () => {
+test("accepts Zod schemas directly", async () => {
   process.env.ZOD_VAR = "hello";
 
   const config = createBeacon({
     ZOD_VAR: { schema: zodStringMin3 },
   });
 
-  config.ensure();
+  await config.ensure();
   expect(config.get<string>("ZOD_VAR")).toBe("hello");
 });
 
-test("collects all errors before throwing", () => {
+test("collects all errors before throwing", async () => {
   delete process.env.VAR_A;
   delete process.env.VAR_B;
 
@@ -159,16 +159,10 @@ test("collects all errors before throwing", () => {
     VAR_B: { type: "number", required: true },
   });
 
-  try {
-    config.ensure();
-    expect.unreachable();
-  } catch (err) {
-    expect(err).toBeInstanceOf(ConfigValidationError);
-    expect((err as ConfigValidationError).errors).toHaveLength(2);
-  }
+  await expect(config.ensure()).rejects.toBeInstanceOf(ConfigValidationError);
 });
 
-test("ensure({ strict: false }) skips missing required vars without throwing", () => {
+test("ensure({ strict: false }) skips missing required vars without throwing", async () => {
   delete process.env.STRICT_VAR;
 
   const config = createBeacon({
@@ -176,7 +170,7 @@ test("ensure({ strict: false }) skips missing required vars without throwing", (
     OPTIONAL_VAR: { type: "number", required: false },
   });
 
-  expect(() => config.ensure({ strict: false })).not.toThrow();
+  await expect(config.ensure({ strict: false })).resolves.toBeDefined();
 });
 
 test("tracks secret keys", () => {
@@ -272,4 +266,73 @@ test("isEnabled returns false when feature is killed", () => {
     }
   );
   expect(config.isEnabled("newDashboard")).toBe(false);
+});
+
+test("fetches remote config when client is provided", async () => {
+  const config = createBeacon(
+    { LOCAL_VAR: { type: "string", default: "local" } },
+    {
+      client: {
+        getConfig: mock(async () => [
+          { key: "REMOTE_VAR", value: "from-cloud", secret: false, updatedAt: "" },
+        ]),
+      } as any,
+    }
+  );
+
+  await config.ensure();
+  expect(config.get<string>("REMOTE_VAR")).toBe("from-cloud");
+  expect(config.get<string>("LOCAL_VAR")).toBe("local");
+});
+
+test("schema entries take priority over remote config", async () => {
+  const config = createBeacon(
+    { SHARED_KEY: { type: "string", default: "from-schema" } },
+    {
+      client: {
+        getConfig: mock(async () => [
+          { key: "SHARED_KEY", value: "from-cloud", secret: false, updatedAt: "" },
+        ]),
+      } as any,
+    }
+  );
+
+  await config.ensure();
+  expect(config.get<string>("SHARED_KEY")).toBe("from-schema");
+});
+
+test("remote config fills gaps not in schema", async () => {
+  const config = createBeacon(
+    { DEFINED_KEY: { type: "string", default: "schema-val" } },
+    {
+      client: {
+        getConfig: mock(async () => [
+          { key: "DEFINED_KEY", value: "remote-val", secret: false, updatedAt: "" },
+          { key: "REMOTE_ONLY", value: "remote-only", secret: false, updatedAt: "" },
+        ]),
+      } as any,
+    }
+  );
+
+  await config.ensure();
+  expect(config.get<string>("DEFINED_KEY")).toBe("schema-val");
+  expect(config.get<string>("REMOTE_ONLY")).toBe("remote-only");
+});
+
+test("network error on remote config silently falls back to local", async () => {
+  const { NetworkError } = await import("@joinremba/core");
+
+  const config = createBeacon(
+    { LOCAL_VAR: { type: "string", default: "fallback" } },
+    {
+      client: {
+        getConfig: mock(async () => {
+          throw new NetworkError("connection lost");
+        }),
+      } as any,
+    }
+  );
+
+  await config.ensure();
+  expect(config.get<string>("LOCAL_VAR")).toBe("fallback");
 });

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { Client } from "@joinremba/core";
 
 export type FieldType =
   | "string"
@@ -40,6 +41,7 @@ export interface BeaconOptions {
   profiles?: Record<string, Record<string, SchemaEntry>>;
   features?: Record<string, FeatureGate>;
   killSwitches?: Record<string, boolean>;
+  client?: Client;
 }
 
 export interface EnsureOptions {
@@ -49,7 +51,7 @@ export interface EnsureOptions {
 }
 
 export interface Beacon {
-  ensure(options?: EnsureOptions): Beacon;
+  ensure(options?: EnsureOptions): Promise<Beacon>;
   get<T = unknown>(key: string): T;
   readonly secret: Record<string, boolean>;
   isEnabled(feature: string): boolean;
