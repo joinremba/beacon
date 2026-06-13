@@ -10,6 +10,7 @@ import type {
   FieldType,
 } from "./types";
 import { ConfigError, ConfigValidationError } from "./errors";
+import { typeToSchema } from "./schema";
 
 export type {
   BeaconOptions,
@@ -22,55 +23,6 @@ export type {
 export { ConfigError, ConfigValidationError };
 export type { BeaconInterface as Beacon };
 
-const typeToSchema = (entry: FieldDefinition): { schema: z.ZodType<unknown>; secret: boolean } => {
-  const secret = entry.secret ?? false;
-  const { type } = entry;
-
-  let base: z.ZodType<unknown>;
-
-  switch (type) {
-    case "string":
-    case "host":
-      base = z.string();
-      break;
-    case "url":
-      base = z.string().url();
-      break;
-    case "number":
-      base = z.coerce.number();
-      break;
-    case "integer":
-      base = z.coerce.number().int();
-      break;
-    case "boolean":
-      base = z
-        .string()
-        .transform((v) => v === "true" || v === "1")
-        .pipe(z.boolean());
-      break;
-    case "enum":
-      if (!entry.values || entry.values.length === 0) {
-        throw new Error(`Enum field must have values defined`);
-      }
-      base = z.enum(entry.values as [string, ...string[]]);
-      break;
-    case "port":
-      base = z.coerce.number().int().min(1).max(65535);
-      break;
-    case "email":
-      base = z.string().email();
-      break;
-    default:
-      base = z.string();
-  }
-
-  if (entry.default !== undefined) {
-    base = base.default(entry.default);
-  }
-
-  return { schema: base, secret };
-};
-
 const resolveEntry = (
   entry: SchemaEntry
 ): {
@@ -81,20 +33,21 @@ const resolveEntry = (
   description?: string;
 } => {
   if ("schema" in entry && entry.schema instanceof z.ZodType) {
+    const hasDefault = entry.schema.safeParse(undefined).success;
     return {
       schema: entry.schema,
       required: entry.required ?? true,
       secret: entry.secret ?? false,
-      hasDefault: false,
+      hasDefault,
       description: entry.description,
     };
   }
   const field = entry as FieldDefinition;
-  const { schema, secret } = typeToSchema(field);
+  const schema = typeToSchema(field);
   return {
     schema,
     required: field.required ?? true,
-    secret,
+    secret: field.secret ?? false,
     hasDefault: field.default !== undefined,
     description: field.description,
   };
@@ -148,25 +101,24 @@ export function createBeacon(
         const raw = process.env[key];
         const isMissing = raw === undefined || raw === "";
 
-        if (isMissing && hasDefault) {
-          try {
-            const parsed = schema.parse(undefined);
-            (validated ??= {})[key] = parsed;
-          } catch (err) {
-            if (err instanceof z.ZodError) {
-              errors.push(
-                new ConfigError(
-                  key,
-                  `Environment variable ${key}: ${err.issues[0]?.message ?? "Invalid value"}`,
-                  secret
-                )
-              );
-            }
-          }
-          continue;
-        }
-
         if (isMissing) {
+          if (hasDefault) {
+            try {
+              const parsed = schema.parse(undefined);
+              (validated ??= {})[key] = parsed;
+            } catch (err) {
+              if (err instanceof z.ZodError) {
+                errors.push(
+                  new ConfigError(
+                    key,
+                    `Environment variable ${key}: ${err.issues[0]?.message ?? "Invalid value"}`,
+                    secret
+                  )
+                );
+              }
+            }
+            continue;
+          }
           if (!required) continue;
           if (!strict) continue;
           errors.push(

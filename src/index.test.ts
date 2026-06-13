@@ -1,4 +1,4 @@
-import { expect, test, beforeAll } from "bun:test";
+import { expect, test, beforeEach } from "bun:test";
 import { createBeacon, ConfigValidationError } from "./index";
 import { z } from "zod";
 
@@ -6,7 +6,7 @@ const zodStringMin3 = z.string().min(3);
 
 const ORIGINAL_ENV = { ...process.env };
 
-beforeAll(() => {
+beforeEach(() => {
   process.env = { ...ORIGINAL_ENV };
 });
 

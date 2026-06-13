@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { generateEnvExample } from "./cli-config";
+import { generateEnvExample, runCheck } from "./cli-config";
 import type { BeaconConfigFile } from "./cli-config";
 
 describe("generateEnvExample", () => {
@@ -49,5 +49,55 @@ describe("generateEnvExample", () => {
 
     const result = generateEnvExample(config);
     expect(result).toContain("Secret: yes");
+  });
+});
+
+describe("runCheck", () => {
+  test("returns ok for present and valid env vars", async () => {
+    const prev = process.env.TEST_DB_URL;
+    process.env.TEST_DB_URL = "https://example.com/db";
+    try {
+      const config: BeaconConfigFile = {
+        schema: {
+          TEST_DB_URL: { type: "url", required: true },
+        },
+      };
+      const result = await runCheck(config);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.status).toBe("ok");
+    } finally {
+      if (prev === undefined) delete process.env.TEST_DB_URL;
+      else process.env.TEST_DB_URL = prev;
+    }
+  });
+
+  test("returns missing for absent required var", async () => {
+    delete process.env.TEST_MISSING;
+    const config: BeaconConfigFile = {
+      schema: {
+        TEST_MISSING: { type: "string", required: true },
+      },
+    };
+    const result = await runCheck(config);
+    expect(result.results[0]?.status).toBe("missing");
+  });
+
+  test("redacts secret values on invalid", async () => {
+    const prev = process.env.TEST_SECRET;
+    process.env.TEST_SECRET = "my-secret-value-that-should-not-leak";
+    try {
+      const config: BeaconConfigFile = {
+        schema: {
+          TEST_SECRET: { type: "integer", secret: true },
+        },
+      };
+      const result = await runCheck(config);
+      expect(result.results[0]?.status).toBe("invalid");
+      expect(result.results[0]?.message).not.toContain("my-secret-value");
+      expect(result.errors[0]?.message).not.toContain("my-secret-value");
+    } finally {
+      if (prev === undefined) delete process.env.TEST_SECRET;
+      else process.env.TEST_SECRET = prev;
+    }
   });
 });

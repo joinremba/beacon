@@ -1,5 +1,5 @@
-import { z } from "zod";
 import type { FeatureGate, SchemaEntry } from "./types";
+import { typeToSchema, type SchemaField } from "./schema";
 
 export interface BeaconConfigFile {
   schema: Record<string, SchemaEntry>;
@@ -119,49 +119,7 @@ export function generateEnvExample(config: BeaconConfigFile, activeProfile?: str
   return lines.join("\n");
 }
 
-const typeToSchema = (entry: Record<string, unknown>): z.ZodType<unknown> => {
-  const type = entry.type as string;
-  let base: z.ZodType<unknown>;
-
-  switch (type) {
-    case "string":
-    case "host":
-      base = z.string();
-      break;
-    case "url":
-      base = z.string().url();
-      break;
-    case "number":
-      base = z.coerce.number();
-      break;
-    case "integer":
-      base = z.coerce.number().int();
-      break;
-    case "boolean":
-      base = z
-        .string()
-        .transform((v) => v === "true" || v === "1")
-        .pipe(z.boolean());
-      break;
-    case "enum":
-      base = z.enum((entry.values ?? []) as unknown as [string, ...string[]]);
-      break;
-    case "port":
-      base = z.coerce.number().int().min(1).max(65535);
-      break;
-    case "email":
-      base = z.string().email();
-      break;
-    default:
-      base = z.string();
-  }
-
-  if (entry.default !== undefined) {
-    base = base.default(entry.default as string | number | boolean);
-  }
-
-  return base;
-};
+const SECRET_CENSOR = "[REDACTED]";
 
 export async function runCheck(
   config: BeaconConfigFile,
@@ -206,19 +164,22 @@ export async function runCheck(
       continue;
     }
 
+    const isSecret = isField ? (entry as { secret?: boolean }).secret : false;
+    const display = isSecret ? SECRET_CENSOR : raw;
+
     try {
       if (isField) {
-        const schema = typeToSchema(entry as unknown as Record<string, unknown>);
+        const schema = typeToSchema(entry as SchemaField);
         schema.parse(raw);
       }
       results.push({
         key,
         status: "ok",
-        message: `Set (${raw.length > 25 ? raw.substring(0, 25) + "..." : raw})`,
+        message: `Set (${display.length > 25 ? display.substring(0, 25) + "..." : display})`,
       });
     } catch {
-      results.push({ key, status: "invalid", message: `Invalid: "${raw}"` });
-      errors.push({ key, message: `Invalid value: ${raw}` });
+      results.push({ key, status: "invalid", message: `Invalid: "${display}"` });
+      errors.push({ key, message: `Invalid value: ${display}` });
     }
   }
 

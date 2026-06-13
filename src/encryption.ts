@@ -2,26 +2,26 @@ const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 12;
 const TAG_LENGTH = 128;
 
-function keyToBuf(key: Uint8Array): ArrayBuffer {
-  const buf = new ArrayBuffer(key.byteLength);
-  new Uint8Array(buf).set(key);
-  return buf;
-}
-
 async function deriveKey(password: string): Promise<CryptoKey> {
-  const encoded = new TextEncoder().encode(password);
-  const raw =
-    encoded.length >= 32
-      ? encoded.slice(0, 32)
-      : (() => {
-          const p = new Uint8Array(32);
-          p.set(encoded);
-          return p;
-        })();
-  return crypto.subtle.importKey("raw", keyToBuf(raw), { name: ALGORITHM }, false, [
-    "encrypt",
-    "decrypt",
-  ]);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "HKDF",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(32),
+      info: new TextEncoder().encode("beacon-env-encryption-v1"),
+    },
+    keyMaterial,
+    { name: ALGORITHM, length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
 }
 
 export async function encryptEnv(envContent: string, key: string): Promise<string> {
