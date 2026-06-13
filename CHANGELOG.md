@@ -28,12 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Feature gates: `config.isEnabled(name)` with `features` config and `FEATURE_<NAME>` env overrides
-- Kill-switch flags: `config.isKilled(name)` with `killSwitches` config and `KILL_<NAME>` env overrides
-- Encrypted `.env` support: `beacon encrypt` / `beacon decrypt` CLI commands (AES-256-GCM)
-- Secret rotation checklist: `beacon rotate` CLI command
-- Docker/Kubernetes env checks: `beacon docker` CLI command
-- Config drift detection: `beacon drift` CLI command
+- Shared `typeToSchema()` module (`src/schema.ts`) — single source of truth for field type coercion
+- CLI tests for `runCheck`, secret redaction, and env validation
+
+### Fixed
+
+- Zod schema entries with `.default()` now auto-detect the default in `resolveEntry()` (B1)
+- CLI no longer leaks secret values in validation error messages (B2)
+- Boolean fields now accept `"yes"` alongside `"true"` and `"1"` (B3)
+- Encryption uses HKDF-SHA256 key derivation instead of raw `slice(0, 32)` (B5)
+- Enum fields with missing/empty `values` now throw a descriptive error instead of a cryptic Zod crash (B6)
+- `ensure({ strict: false })` now applies defaults to missing vars before skipping (B9)
+- Tests restore `process.env` in `beforeEach` instead of `beforeAll` to prevent cross-test pollution (B8)
 
 ## [0.1.0] - 2026-06-12
 
