@@ -53,7 +53,8 @@ export interface EnsureOptions {
 export interface Beacon {
   ensure(options?: EnsureOptions): Promise<Beacon>;
   get<T = unknown>(key: string): T;
+  getAll(): Record<string, unknown>;
   readonly secret: Record<string, boolean>;
-  isEnabled(feature: string): boolean;
   isKilled(feature: string): boolean;
+  isEnabled(feature: string): boolean;
 }

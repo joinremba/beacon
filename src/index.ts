@@ -178,6 +178,13 @@ export function createBeacon(
       return validated[key] as T;
     },
 
+    getAll(): Record<string, unknown> {
+      if (validated === null) {
+        throw new ConfigError("beacon", "Call beacon.ensure() before accessing config values");
+      }
+      return { ...validated };
+    },
+
     get secret(): Record<string, boolean> {
       const map: Record<string, boolean> = {};
       for (const key of secretKeys) {
