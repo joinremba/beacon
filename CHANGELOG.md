@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-21
+
+### Fixed
+
+- `beacon check` now validates Zod-schema entries (was always reporting them as ok)
+- `beacon check` now redacts secrets for Zod-schema entries (was leaking plaintext)
+- Boolean validation rejects invalid values with a clear error message instead of silently coercing to `false`
+- `--all-profiles -o <file>` no longer overwrites all profiles to the same file — default profile only
+- `EnsureOptions` type now exported from package entry point
+
+### Changed
+
+- `@joinremba/core` moved to devDependencies (type-only usage at runtime)
+
 ## [0.4.0] - 2026-06-13
 
 ### Added
