@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { FeatureGate, SchemaEntry } from "./types";
 import { typeToSchema, type SchemaField } from "./schema";
 
@@ -147,9 +148,10 @@ export async function runCheck(
       const field = entry as { required?: boolean; default?: unknown };
       required = field.required !== false;
       hasDefault = field.default !== undefined;
-    } else {
-      const f = entry as { required?: boolean };
+    } else if ("schema" in entry) {
+      const f = entry as { required?: boolean; schema: z.ZodType<unknown> };
       required = f.required !== false;
+      hasDefault = f.schema.safeParse(undefined).success;
     }
 
     if (raw === undefined || raw === "") {
@@ -164,13 +166,16 @@ export async function runCheck(
       continue;
     }
 
-    const isSecret = isField ? (entry as { secret?: boolean }).secret : false;
+    const isSecret = (entry as { secret?: boolean }).secret ?? false;
     const display = isSecret ? SECRET_CENSOR : raw;
 
     try {
       if (isField) {
         const schema = typeToSchema(entry as SchemaField);
         schema.parse(raw);
+      } else if ("schema" in entry) {
+        const f = entry as { schema: z.ZodType<unknown> };
+        f.schema.parse(raw);
       }
       results.push({
         key,

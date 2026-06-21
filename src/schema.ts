@@ -27,6 +27,9 @@ export function typeToSchema(field: SchemaField): z.ZodType<unknown> {
     case "boolean":
       base = z
         .string()
+        .refine((v) => ["true", "false", "1", "0", "yes", "no"].includes(v), {
+          message: "Expected one of: true, false, 1, 0, yes, no",
+        })
         .transform((v) => v === "true" || v === "1" || v === "yes")
         .pipe(z.boolean());
       break;

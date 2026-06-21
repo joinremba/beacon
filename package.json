@@ -68,10 +68,10 @@
     "bun": ">=1.3.1"
   },
   "dependencies": {
-    "@joinremba/core": "^0.4.0",
     "zod": "^4.4.2"
   },
   "devDependencies": {
+    "@joinremba/core": "^0.4.0",
     "@types/bun": "latest",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",

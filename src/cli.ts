@@ -171,9 +171,7 @@ async function handleInit(args: ParsedArgs) {
     : [args.profile];
 
   for (const profile of profilesToGenerate) {
-    const output = profile
-      ? args.output || `.env.example.${profile}`
-      : args.output || ".env.example";
+    const output = profile ? `.env.example.${profile}` : args.output || ".env.example";
     const example = generateEnvExample(config, profile);
     await Bun.write(output, example);
     console.log(` ${icon.pass} Generated ${color.bold(output)}`);

@@ -14,6 +14,7 @@ import { typeToSchema } from "./schema";
 
 export type {
   BeaconOptions,
+  EnsureOptions,
   FeatureGate,
   FieldDefinition,
   FieldDefinitionWithSchema,
