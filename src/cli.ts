@@ -3,6 +3,7 @@
 import { loadConfig, type BeaconConfigFile } from "./cli-config";
 import { generateEnvExample } from "./cli-config";
 import { runCheck } from "./cli-config";
+import { typeToSchema, type SchemaField } from "./schema";
 import { encryptEnv, decryptEnv } from "./encryption";
 import { color, icon, formatCheckResult, formatSummary, suggestKeys } from "./cli-format";
 
@@ -206,6 +207,29 @@ async function handleCheck(args: ParsedArgs) {
 
   process.stdout.write(formatCheckResult(result.results));
 
+  if (config.features) {
+    const featureEntries = Object.entries(config.features);
+    if (featureEntries.length > 0) {
+      process.stdout.write(`\n ${color.bold("Feature Gates")}\n\n`);
+      for (const [name, gate] of featureEntries) {
+        const envName = `FEATURE_${name
+          .replace(/([a-z])([A-Z])/g, "$1_$2")
+          .replace(/[^a-zA-Z0-9]/g, "_")
+          .toUpperCase()}`;
+        const envVal = process.env[envName];
+        const enabled =
+          envVal !== undefined && envVal !== ""
+            ? envVal === "true" || envVal === "1" || envVal === "yes"
+            : gate.enabled;
+        const icon_ = enabled ? icon.pass : icon.fail;
+        const status = enabled ? color.green("enabled") : color.red("disabled");
+        const desc = gate.description ? ` ${color.dim(`— ${gate.description}`)}` : "";
+        process.stdout.write(`   ${icon_} ${color.bold(name)}: ${status}${desc}\n`);
+      }
+      process.stdout.write("\n");
+    }
+  }
+
   if (result.errors.length > 0) {
     for (const err of result.errors) {
       const suggestions = suggestKeys(
@@ -343,13 +367,24 @@ async function handleDrift(args: ParsedArgs) {
     }
 
     if (isField) {
-      const field = entry as { type?: string; values?: readonly string[] };
-      if (field.type === "enum" && field.values && !field.values.includes(raw)) {
-        driftResults.push({
-          key,
-          expected: `one of: ${field.values.join(" | ")}`,
-          actual: raw,
-        });
+      const schema = typeToSchema(entry as SchemaField);
+      const result = schema.safeParse(raw);
+      if (!result.success) {
+        const field = entry as { type?: string; values?: readonly string[] };
+        if (field.type === "enum" && field.values) {
+          driftResults.push({
+            key,
+            expected: `one of: ${field.values.join(" | ")}`,
+            actual: raw,
+          });
+        } else {
+          const issue = result.error.issues[0];
+          driftResults.push({
+            key,
+            expected: issue?.message ?? "valid value",
+            actual: raw,
+          });
+        }
       }
     }
   }
