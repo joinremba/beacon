@@ -1,9 +1,6 @@
-<p align="center">
-  <picture>
-    <img alt="@joinremba/beacon" src="./assets/logo.svg" width="80">
-  </picture>
+<p align="center"
   <br>
-  <strong>@joinremba/beacon</strong>
+  <strong>Beacon</strong>
 </p>
 
 <p align="center">
