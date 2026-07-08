@@ -25,6 +25,6 @@ When using envoker, please follow these guidelines:
 
 - **Validate all external input** — Always use Zod schemas to validate environment variables and configuration values. Never trust raw `process.env` values.
 - **Keep Zod up to date** — Zod is the only runtime dependency. Regularly update to the latest version to receive security fixes.
-- **No secrets in logs** — Mark sensitive environment variables with `secret: true` in your schema so that Beacon redacts them from error messages and logs.
+- **No secrets in logs** — Mark sensitive environment variables with `secret: true` in your schema so that Envoker redacts them from error messages and logs.
 - **Never commit secrets** — Do not hardcode secrets in source code or configuration files. Use environment variables or a secure secrets manager.
 - **Run validations at startup** — Call `config.ensure()` during application bootstrap so that misconfigurations are caught early, before serving traffic.

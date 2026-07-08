@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "bin": {
-    "beacon": "src/cli.ts"
+    "envoker": "src/cli.ts"
   },
   "exports": {
     ".": {

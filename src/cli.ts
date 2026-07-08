@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { loadConfig, type BeaconConfigFile } from "./cli-config";
+import { loadConfig, type EnvokerConfigFile } from "./cli-config";
 import { generateEnvExample } from "./cli-config";
 import { runCheck } from "./cli-config";
 import { typeToSchema, type SchemaField } from "./schema";
@@ -87,9 +87,9 @@ async function main() {
   if (args.command === "") {
     if (args.configPath || args.profile || args.key || args.input || args.allProfiles) {
       console.error(
-        ` ${icon.fail} Missing command. Use ${color.cyan("beacon <command> [options]")}`
+        ` ${icon.fail} Missing command. Use ${color.cyan("envoker <command> [options]")}`
       );
-      console.error(`     Run ${color.cyan("beacon --help")} to see available commands`);
+      console.error(`     Run ${color.cyan("envoker --help")} to see available commands`);
       process.exit(1);
     }
     printHelp("");
@@ -126,7 +126,7 @@ async function main() {
 }
 
 async function handleInit(args: ParsedArgs) {
-  let config: BeaconConfigFile;
+  let config: EnvokerConfigFile;
 
   try {
     config = await loadConfig(args.configPath || undefined);
@@ -136,7 +136,7 @@ async function handleInit(args: ParsedArgs) {
       process.exit(1);
     }
     config = { schema: {} };
-    console.warn(` ${icon.info} No config file found. Creating ${color.bold(".beaconrc.json")}...`);
+    console.warn(` ${icon.info} No config file found. Creating ${color.bold(".envokerrc.json")}...`);
     const template = {
       schema: {
         DATABASE_URL: { type: "url", required: true, description: "PostgreSQL connection string" },
@@ -151,17 +151,17 @@ async function handleInit(args: ParsedArgs) {
         },
       },
     };
-    await Bun.write(".beaconrc.json", JSON.stringify(template, null, 2) + "\n");
-    console.log(` ${icon.pass} Created ${color.bold(".beaconrc.json")}`);
+    await Bun.write(".envokerrc.json", JSON.stringify(template, null, 2) + "\n");
+    console.log(` ${icon.pass} Created ${color.bold(".envokerrc.json")}`);
     console.log(`     Edit it to define your schema and profiles, then run:`);
     console.log(
-      `       ${color.cyan("bunx beacon init")}                      ${color.grey("# default profile")}`
+      `       ${color.cyan("bunx envoker init")}                      ${color.grey("# default profile")}`
     );
     console.log(
-      `       ${color.cyan("bunx beacon init --profile production")}  ${color.grey("# production")}`
+      `       ${color.cyan("bunx envoker init --profile production")}  ${color.grey("# production")}`
     );
     console.log(
-      `       ${color.cyan("bunx beacon init --all-profiles")}        ${color.grey("# all profiles")}`
+      `       ${color.cyan("bunx envoker init --all-profiles")}        ${color.grey("# all profiles")}`
     );
     process.exit(0);
   }
@@ -188,7 +188,7 @@ async function handleInit(args: ParsedArgs) {
 }
 
 async function handleCheck(args: ParsedArgs) {
-  let config: BeaconConfigFile;
+  let config: EnvokerConfigFile;
   try {
     config = await loadConfig(args.configPath || undefined);
   } catch (err) {
@@ -319,7 +319,7 @@ Follow these steps to rotate a secret safely:
      Deploy config changes pointing to the new secret
 
  ${color.bold("4.")} Verify everything works
-     Run: ${color.cyan("bunx beacon check")}
+     Run: ${color.cyan("bunx envoker check")}
      Check logs, metrics, and error rates
 
  ${color.bold("5.")} Revoke the old secret
@@ -330,13 +330,13 @@ Follow these steps to rotate a secret safely:
      Confirm no services still reference the old secret
      Update docs and secrets inventory
 
- ${color.dim("Pro tip: Use beacon encrypt to store secrets safely in git.")}
+ ${color.dim("Pro tip: Use envoker encrypt to store secrets safely in git.")}
  ${color.dim("         Set BEACON_ENCRYPTION_KEY in your deployment env.")}
 `);
 }
 
 async function handleDrift(args: ParsedArgs) {
-  let config: BeaconConfigFile;
+  let config: EnvokerConfigFile;
   try {
     config = await loadConfig(args.configPath || undefined);
   } catch (err) {
@@ -441,7 +441,7 @@ async function handleDockerCheck(args: ParsedArgs) {
     console.log();
   }
 
-  let config: BeaconConfigFile | undefined;
+  let config: EnvokerConfigFile | undefined;
   try {
     config = await loadConfig(args.configPath || undefined);
   } catch {
@@ -449,7 +449,7 @@ async function handleDockerCheck(args: ParsedArgs) {
   }
 
   if (config) {
-    console.log(` ${icon.info} ${color.bold("Running beacon check against schema")}\n`);
+    console.log(` ${icon.info} ${color.bold("Running envoker check against schema")}\n`);
     const result = await runCheck(config, args.profile);
     process.stdout.write(formatCheckResult(result.results));
     const passed = result.results.filter((r) => r.status === "ok").length;
@@ -465,26 +465,26 @@ function printHelp(command: string) {
   if (command === "init") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon init [options]
+  envoker init [options]
 
 ${color.bold("DESCRIPTION")}
-  Generate a .env.example file from your beacon config file.
+  Generate a .env.example file from your envoker config file.
   Reads your schema and creates a documented template with
   types, defaults, and descriptions for every variable.
 
 ${color.bold("OPTIONS")}
   -c, --config <path>  Path to config file
-                        ${color.dim("(default: .beaconrc.json or beacon.config.json)")}
+                        ${color.dim("(default: .envokerrc.json or envoker.config.json)")}
   -o, --output <path>  Output file for init
                         ${color.dim("(default: .env.example or .env.example.<profile>)")}
   --profile <name>     Generate for a specific profile
   --all-profiles       Generate .env.example for every profile
 
 ${color.bold("EXAMPLES")}
-  beacon init                              ${color.grey("# generate .env.example")}
-  beacon init --profile production         ${color.grey("# generate .env.example.production")}
-  beacon init --all-profiles               ${color.grey("# generate for all profiles")}
-  beacon init -c ./config/beacon.json      ${color.grey("# custom config path")}
+  envoker init                              ${color.grey("# generate .env.example")}
+  envoker init --profile production         ${color.grey("# generate .env.example.production")}
+  envoker init --all-profiles               ${color.grey("# generate for all profiles")}
+  envoker init -c ./config/envoker.json      ${color.grey("# custom config path")}
 `);
     return;
   }
@@ -492,14 +492,14 @@ ${color.bold("EXAMPLES")}
   if (command === "rotate") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon rotate
+  envoker rotate
 
 ${color.bold("DESCRIPTION")}
   Print a step-by-step secret rotation checklist.
   Follow it to rotate any secret (DB credentials, API keys, etc.).
 
 ${color.bold("EXAMPLES")}
-  beacon rotate
+  envoker rotate
 `);
     return;
   }
@@ -507,21 +507,21 @@ ${color.bold("EXAMPLES")}
   if (command === "drift") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon drift [options]
+  envoker drift [options]
 
 ${color.bold("DESCRIPTION")}
   Detect config drift — compares your actual environment against
-  the schema defined in your beacon config file.
+  the schema defined in your envoker config file.
   Reports missing variables, type mismatches, and unexpected values.
 
 ${color.bold("OPTIONS")}
   -c, --config <path>  Path to config file
-                        ${color.dim("(default: .beaconrc.json or beacon.config.json)")}
+                        ${color.dim("(default: .envokerrc.json or envoker.config.json)")}
   --profile <name>     Profile to merge (staging, production, etc.)
 
 ${color.bold("EXAMPLES")}
-  beacon drift
-  beacon drift --profile production
+  envoker drift
+  envoker drift --profile production
 `);
     return;
   }
@@ -529,21 +529,21 @@ ${color.bold("EXAMPLES")}
   if (command === "docker") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon docker [options]
+  envoker docker [options]
 
 ${color.bold("DESCRIPTION")}
   Validate the environment in Docker and Kubernetes contexts.
   Detects the container runtime, checks common container env vars,
-  and runs a full beacon check against your schema.
+  and runs a full envoker check against your schema.
 
 ${color.bold("OPTIONS")}
   -c, --config <path>  Path to config file
-                        ${color.dim("(default: .beaconrc.json or beacon.config.json)")}
+                        ${color.dim("(default: .envokerrc.json or envoker.config.json)")}
   --profile <name>     Profile to merge
 
 ${color.bold("EXAMPLES")}
-  beacon docker
-  beacon docker --profile staging
+  envoker docker
+  envoker docker --profile staging
 `);
     return;
   }
@@ -551,7 +551,7 @@ ${color.bold("EXAMPLES")}
   if (command === "encrypt") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon encrypt [options]
+  envoker encrypt [options]
 
 ${color.bold("DESCRIPTION")}
   Encrypt a .env file so secrets can be committed safely.
@@ -566,9 +566,9 @@ ${color.bold("OPTIONS")}
                         ${color.dim("(or set BEACON_ENCRYPTION_KEY)")}
 
 ${color.bold("EXAMPLES")}
-  beacon encrypt                                           ${color.grey("# encrypt .env → .env.encrypted")}
-  beacon encrypt -i .env.prod -o .env.prod.encrypted       ${color.grey("# custom paths")}
-  BEACON_ENCRYPTION_KEY=... beacon encrypt                 ${color.grey("# key from env")}
+  envoker encrypt                                           ${color.grey("# encrypt .env → .env.encrypted")}
+  envoker encrypt -i .env.prod -o .env.prod.encrypted       ${color.grey("# custom paths")}
+  BEACON_ENCRYPTION_KEY=... envoker encrypt                 ${color.grey("# key from env")}
 `);
     return;
   }
@@ -576,7 +576,7 @@ ${color.bold("EXAMPLES")}
   if (command === "decrypt") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon decrypt [options]
+  envoker decrypt [options]
 
 ${color.bold("DESCRIPTION")}
   Decrypt a .env.encrypted file back to plaintext.
@@ -591,9 +591,9 @@ ${color.bold("OPTIONS")}
                         ${color.dim("(or set BEACON_ENCRYPTION_KEY)")}
 
 ${color.bold("EXAMPLES")}
-  beacon decrypt                                           ${color.grey("# decrypt .env.encrypted → .env")}
-  beacon decrypt -i .env.prod.encrypted -o .env.prod       ${color.grey("# custom paths")}
-  BEACON_ENCRYPTION_KEY=... beacon decrypt                 ${color.grey("# key from env")}
+  envoker decrypt                                           ${color.grey("# decrypt .env.encrypted → .env")}
+  envoker decrypt -i .env.prod.encrypted -o .env.prod       ${color.grey("# custom paths")}
+  BEACON_ENCRYPTION_KEY=... envoker decrypt                 ${color.grey("# key from env")}
 `);
     return;
   }
@@ -601,7 +601,7 @@ ${color.bold("EXAMPLES")}
   if (command === "check") {
     console.log(`
 ${color.bold("USAGE")}
-  beacon check [options]
+  envoker check [options]
 
 ${color.bold("DESCRIPTION")}
   Validate the current process.env against your schema.
@@ -609,7 +609,7 @@ ${color.bold("DESCRIPTION")}
 
 ${color.bold("OPTIONS")}
   -c, --config <path>  Path to config file
-                       ${color.dim("(default: .beaconrc.json or beacon.config.json)")}
+                       ${color.dim("(default: .envokerrc.json or envoker.config.json)")}
   --profile <name>     Profile to merge (staging, production, etc.)
 
 ${color.bold("EXIT CODES")}
@@ -617,18 +617,18 @@ ${color.bold("EXIT CODES")}
   1  One or more variables are missing or invalid
 
 ${color.bold("EXAMPLES")}
-  beacon check                             ${color.grey("# validate env")}
-  beacon check --profile production        ${color.grey("# validate with profile")}
-  beacon check -c ./config/beacon.json     ${color.grey("# custom config path")}
+  envoker check                             ${color.grey("# validate env")}
+  envoker check --profile production        ${color.grey("# validate with profile")}
+  envoker check -c ./config/envoker.json     ${color.grey("# custom config path")}
 `);
     return;
   }
 
   console.log(`
-${color.bold("beacon")} ${color.dim("- validate env vars, config, secrets, and feature gates")}
+${color.bold("envoker")} ${color.dim("- validate env vars, config, secrets, and feature gates")}
 
 ${color.bold("USAGE")}
-  beacon <command> [options]
+  envoker <command> [options]
 
 ${color.bold("COMMANDS")}
   init     ${color.dim("Generate .env.example from your config")}
@@ -641,7 +641,7 @@ ${color.bold("COMMANDS")}
   help     ${color.dim("Show help for a specific command")}
 
 ${color.bold("OPTIONS")}
-  -c, --config <path>  Path to config file (default: .beaconrc.json or beacon.config.json)
+  -c, --config <path>  Path to config file (default: .envokerrc.json or envoker.config.json)
   -o, --output <path>  Output file for init (default: .env.example)
   --profile <name>     Profile name to use (e.g. staging, production)
 
@@ -650,11 +650,11 @@ ${color.bold("EXIT CODES")}
   1  Validation failure or error
 
 ${color.bold("EXAMPLES")}
-  beacon init
-  beacon init --profile production
-  beacon check
-  beacon check -c ./config/beacon.json --profile staging
-  beacon help init
+  envoker init
+  envoker init --profile production
+  envoker check
+  envoker check -c ./config/envoker.json --profile staging
+  envoker help init
 `);
 }
 

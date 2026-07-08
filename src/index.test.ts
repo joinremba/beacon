@@ -1,5 +1,5 @@
 import { expect, test, beforeEach, mock } from "bun:test";
-import { createBeacon, ConfigValidationError } from "./index";
+import { createEnvoker, ConfigValidationError } from "./index";
 import { z } from "zod";
 
 const zodStringMin3 = z.string().min(3);
@@ -14,7 +14,7 @@ test("returns typed config values after ensure()", async () => {
   process.env.DATABASE_URL = "https://example.com/db";
   process.env.REDIS_URL = "https://example.com/redis";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     DATABASE_URL: { type: "url", required: true },
     REDIS_URL: { type: "url", required: true },
   });
@@ -27,7 +27,7 @@ test("returns typed config values after ensure()", async () => {
 test("throws ValidationError for missing required vars", async () => {
   delete process.env.MISSING_VAR;
 
-  const config = createBeacon({
+  const config = createEnvoker({
     MISSING_VAR: { type: "string", required: true },
   });
 
@@ -37,7 +37,7 @@ test("throws ValidationError for missing required vars", async () => {
 test("does not throw for optional vars with defaults", async () => {
   delete process.env.MY_PORT;
 
-  const config = createBeacon({
+  const config = createEnvoker({
     MY_PORT: { type: "port", default: 3000 },
   });
 
@@ -48,7 +48,7 @@ test("does not throw for optional vars with defaults", async () => {
 test("coerces number types", async () => {
   process.env.MY_NUMBER = "42";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     MY_NUMBER: { type: "number" },
   });
 
@@ -61,7 +61,7 @@ test("coerces boolean types", async () => {
   process.env.FEATURE_Y = "false";
   process.env.FEATURE_Z = "1";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     FEATURE_X: { type: "boolean" },
     FEATURE_Y: { type: "boolean" },
     FEATURE_Z: { type: "boolean" },
@@ -76,7 +76,7 @@ test("coerces boolean types", async () => {
 test("validates enum values", async () => {
   process.env.NODE_ENV = "production";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     NODE_ENV: {
       type: "enum",
       values: ["development", "staging", "production"],
@@ -90,7 +90,7 @@ test("validates enum values", async () => {
 test("throws for invalid enum values", async () => {
   process.env.NODE_ENV = "invalid";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     NODE_ENV: {
       type: "enum",
       values: ["development", "production"],
@@ -103,7 +103,7 @@ test("throws for invalid enum values", async () => {
 test("validates port range", async () => {
   process.env.PORT = "99999";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     PORT: { type: "port" },
   });
 
@@ -111,17 +111,17 @@ test("validates port range", async () => {
 });
 
 test("throws when accessing before ensure()", () => {
-  const config = createBeacon({
+  const config = createEnvoker({
     DB_URL: { type: "url", required: true },
   });
 
-  expect(() => config.get("DB_URL")).toThrow("Call beacon.ensure()");
+  expect(() => config.get("DB_URL")).toThrow("Call envoker.ensure()");
 });
 
 test("uses profile overrides when profile is set", async () => {
   process.env.DB_HOST = "prod.example.com";
 
-  const config = createBeacon(
+  const config = createEnvoker(
     {
       DB_HOST: { type: "string" },
     },
@@ -142,7 +142,7 @@ test("uses profile overrides when profile is set", async () => {
 test("accepts Zod schemas directly", async () => {
   process.env.ZOD_VAR = "hello";
 
-  const config = createBeacon({
+  const config = createEnvoker({
     ZOD_VAR: { schema: zodStringMin3 },
   });
 
@@ -154,7 +154,7 @@ test("collects all errors before throwing", async () => {
   delete process.env.VAR_A;
   delete process.env.VAR_B;
 
-  const config = createBeacon({
+  const config = createEnvoker({
     VAR_A: { type: "string", required: true },
     VAR_B: { type: "number", required: true },
   });
@@ -165,7 +165,7 @@ test("collects all errors before throwing", async () => {
 test("ensure({ strict: false }) skips missing required vars without throwing", async () => {
   delete process.env.STRICT_VAR;
 
-  const config = createBeacon({
+  const config = createEnvoker({
     STRICT_VAR: { type: "string", required: true },
     OPTIONAL_VAR: { type: "number", required: false },
   });
@@ -174,7 +174,7 @@ test("ensure({ strict: false }) skips missing required vars without throwing", a
 });
 
 test("tracks secret keys", () => {
-  const config = createBeacon({
+  const config = createEnvoker({
     API_KEY: { type: "string", secret: true },
     DB_URL: { type: "url" },
   });
@@ -183,12 +183,12 @@ test("tracks secret keys", () => {
 });
 
 test("isEnabled returns false for undefined feature", () => {
-  const config = createBeacon({ PORT: { type: "port", default: 3000 } });
+  const config = createEnvoker({ PORT: { type: "port", default: 3000 } });
   expect(config.isEnabled("nonexistent")).toBe(false);
 });
 
 test("isEnabled returns true for enabled feature", () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { PORT: { type: "port", default: 3000 } },
     { features: { newDashboard: { enabled: true } } }
   );
@@ -196,7 +196,7 @@ test("isEnabled returns true for enabled feature", () => {
 });
 
 test("isEnabled returns false for disabled feature", () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { PORT: { type: "port", default: 3000 } },
     { features: { darkMode: { enabled: false } } }
   );
@@ -207,7 +207,7 @@ test("isEnabled respects env override", () => {
   const prev = process.env.FEATURE_NEW_DASHBOARD;
   try {
     process.env.FEATURE_NEW_DASHBOARD = "false";
-    const config = createBeacon(
+    const config = createEnvoker(
       { PORT: { type: "port", default: 3000 } },
       { features: { newDashboard: { enabled: true } } }
     );
@@ -222,7 +222,7 @@ test("isEnabled respects env override", () => {
 });
 
 test("isEnabled uses rollout when enabled is true", () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { PORT: { type: "port", default: 3000 } },
     { features: { gradual: { enabled: true, rollout: 1 } } }
   );
@@ -230,12 +230,12 @@ test("isEnabled uses rollout when enabled is true", () => {
 });
 
 test("isKilled returns false by default", () => {
-  const config = createBeacon({ PORT: { type: "port", default: 3000 } });
+  const config = createEnvoker({ PORT: { type: "port", default: 3000 } });
   expect(config.isKilled("newDashboard")).toBe(false);
 });
 
 test("isKilled returns true when set in options", () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { PORT: { type: "port", default: 3000 } },
     { killSwitches: { newDashboard: true } }
   );
@@ -246,7 +246,7 @@ test("isKilled respects KILL_ env override", () => {
   const prev = process.env.KILL_NEW_DASHBOARD;
   try {
     process.env.KILL_NEW_DASHBOARD = "true";
-    const config = createBeacon(
+    const config = createEnvoker(
       { PORT: { type: "port", default: 3000 } },
       { killSwitches: { newDashboard: false } }
     );
@@ -258,7 +258,7 @@ test("isKilled respects KILL_ env override", () => {
 });
 
 test("isEnabled returns false when feature is killed", () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { PORT: { type: "port", default: 3000 } },
     {
       features: { newDashboard: { enabled: true } },
@@ -269,7 +269,7 @@ test("isEnabled returns false when feature is killed", () => {
 });
 
 test("fetches remote config when client is provided", async () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { LOCAL_VAR: { type: "string", default: "local" } },
     {
       client: {
@@ -286,7 +286,7 @@ test("fetches remote config when client is provided", async () => {
 });
 
 test("schema entries take priority over remote config", async () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { SHARED_KEY: { type: "string", default: "from-schema" } },
     {
       client: {
@@ -302,7 +302,7 @@ test("schema entries take priority over remote config", async () => {
 });
 
 test("remote config fills gaps not in schema", async () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { DEFINED_KEY: { type: "string", default: "schema-val" } },
     {
       client: {
@@ -320,7 +320,7 @@ test("remote config fills gaps not in schema", async () => {
 });
 
 test("network error on remote config silently falls back to local", async () => {
-  const config = createBeacon(
+  const config = createEnvoker(
     { LOCAL_VAR: { type: "string", default: "fallback" } },
     {
       client: {

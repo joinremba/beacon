@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type {
-  Beacon as BeaconInterface,
-  BeaconOptions,
+  Envoker as EnvokerInterface,
+  EnvokerOptions,
   EnsureOptions,
   FeatureGate,
   FieldDefinition,
@@ -13,7 +13,7 @@ import { ConfigError, ConfigValidationError } from "./errors";
 import { typeToSchema } from "./schema";
 
 export type {
-  BeaconOptions,
+  EnvokerOptions,
   EnsureOptions,
   FeatureGate,
   FieldDefinition,
@@ -22,7 +22,7 @@ export type {
   FieldType,
 };
 export { ConfigError, ConfigValidationError };
-export type { BeaconInterface as Beacon };
+export type { EnvokerInterface as Envoker };
 
 const resolveEntry = (
   entry: SchemaEntry
@@ -72,10 +72,10 @@ const featureRollup = (name: string): number => {
   return Math.abs(hash % 10000) / 10000;
 };
 
-export function createBeacon(
+export function createEnvoker(
   schema: Record<string, SchemaEntry>,
-  options?: BeaconOptions
-): BeaconInterface {
+  options?: EnvokerOptions
+): EnvokerInterface {
   const client = options?.client;
   const mergedSchema: Record<string, SchemaEntry> = { ...schema };
 
@@ -94,8 +94,8 @@ export function createBeacon(
   const features: Record<string, FeatureGate> = options?.features ?? {};
   const killSwitches: Record<string, boolean> = options?.killSwitches ?? {};
 
-  const beacon: BeaconInterface = {
-    async ensure(options?: EnsureOptions): Promise<BeaconInterface> {
+  const envoker: EnvokerInterface = {
+    async ensure(options?: EnsureOptions): Promise<EnvokerInterface> {
       const strict = options?.strict ?? true;
       const errors: ConfigError[] = [];
 
@@ -166,12 +166,12 @@ export function createBeacon(
       }
 
       validated ??= {};
-      return beacon;
+      return envoker;
     },
 
     get<T = unknown>(key: string): T {
       if (validated === null) {
-        throw new ConfigError(key, "Call beacon.ensure() before accessing config values");
+        throw new ConfigError(key, "Call envoker.ensure() before accessing config values");
       }
       if (!(key in validated)) {
         throw new ConfigError(key, `Unknown config key: ${key}`);
@@ -181,7 +181,7 @@ export function createBeacon(
 
     getAll(): Record<string, unknown> {
       if (validated === null) {
-        throw new ConfigError("beacon", "Call beacon.ensure() before accessing config values");
+        throw new ConfigError("envoker", "Call envoker.ensure() before accessing config values");
       }
       return { ...validated };
     },
@@ -223,7 +223,7 @@ export function createBeacon(
     },
   };
 
-  return beacon;
+  return envoker;
 }
 
-export default createBeacon;
+export default createEnvoker;

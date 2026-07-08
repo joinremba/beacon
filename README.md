@@ -1,6 +1,6 @@
 <p align="center"
   <br>
-  <strong>Beacon</strong>
+  <strong>Envoker</strong>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 - **Secrets redaction** — Values marked `secret: true` are automatically replaced with `[REDACTED]` in errors and CLI output.
 - **Profile overrides** — Define per-environment schemas (development, staging, production) with inheritance.
 - **Feature gates & kill switches** — Runtime toggles with env-var overrides and deterministic rollout hashing.
-- **CLI tool** — `beacon init` generates `.env.example`, `beacon check` validates the runtime environment, `beacon drift` detects config drift.
+- **CLI tool** — `envoker init` generates `.env.example`, `envoker check` validates the runtime environment, `envoker drift` detects config drift.
 - **Encrypted .env** — AES-256-GCM encrypt/decrypt `.env` files for safe committing.
 - **Remote config** — Fetches config from the Remba cloud client with local fallback.
 - **TypeScript-first** — Strict types, generic getter, full type exports.
@@ -42,9 +42,9 @@ bun add envoker
 ## Quick Start
 
 ```ts
-import { createBeacon } from "envoker";
+import { createEnvoker } from "envoker";
 
-const config = createBeacon({
+const config = createEnvoker({
   DATABASE_URL: { type: "url", required: true },
   REDIS_URL: { type: "url", required: true },
   PORT: { type: "port", default: 3000 },
@@ -64,7 +64,7 @@ If any required variable is missing or invalid, `ensure()` throws a `ConfigValid
 
 ## Schema Types
 
-Each field in the schema can be defined with a `type` string. Beacon coerces and validates the raw `process.env` value accordingly.
+Each field in the schema can be defined with a `type` string. Envoker coerces and validates the raw `process.env` value accordingly.
 
 | Type      | Validation                                              | Coercion                                    | Example                                |
 | --------- | ------------------------------------------------------- | ------------------------------------------- | -------------------------------------- |
@@ -79,7 +79,7 @@ Each field in the schema can be defined with a `type` string. Beacon coerces and
 | `email`   | Valid email                                             | `z.string().email()`                        | `{ type: "email" }`                    |
 
 ```ts
-const config = createBeacon({
+const config = createEnvoker({
   APP_NAME: { type: "string", default: "my-app" },
   DATABASE_URL: { type: "url", required: true },
   WORKERS: { type: "integer", default: 4 },
@@ -95,7 +95,7 @@ You can also pass raw **Zod schemas** directly for custom validation:
 ```ts
 import { z } from "zod";
 
-const config = createBeacon({
+const config = createEnvoker({
   WHITELIST: { schema: z.string().regex(/^[\d,]+$/) },
   TIMEOUT: { schema: z.coerce.number().positive().max(30000) },
 });
@@ -169,7 +169,7 @@ const debug = config.get<boolean>("DEBUG"); // type: boolean
 
 Throws `ConfigError` if:
 
-- Called before `ensure()` — `"Call beacon.ensure() before accessing config values"`
+- Called before `ensure()` — `"Call envoker.ensure() before accessing config values"`
 - Key doesn't exist in the schema — `"Unknown config key: <key>"`
 
 ---
@@ -179,7 +179,7 @@ Throws `ConfigError` if:
 Mark sensitive fields with `secret: true` to prevent their values from appearing in error messages, CLI output, or logs.
 
 ```ts
-const config = createBeacon({
+const config = createEnvoker({
   API_KEY: { type: "string", required: true, secret: true },
   DATABASE_URL: { type: "url", secret: true },
 });
@@ -201,10 +201,10 @@ config.secret; // { API_KEY: true, DATABASE_URL: true }
 
 ## NODE_ENV Handling
 
-Beacon handles `NODE_ENV` like any other env var — define it in your schema with an `enum` type and a default:
+Envoker handles `NODE_ENV` like any other env var — define it in your schema with an `enum` type and a default:
 
 ```ts
-const config = createBeacon({
+const config = createEnvoker({
   NODE_ENV: {
     type: "enum",
     values: ["development", "test", "staging", "production"],
@@ -223,9 +223,9 @@ This means you can safely deploy with minimal env vars during development as lon
 
 ---
 
-## `.beaconrc.json` (CLI Config File)
+## `.envokerrc.json` (CLI Config File)
 
-The CLI reads schema, profiles, and features from a JSON config file. It looks for `.beaconrc.json` or `beacon.config.json` in the project root.
+The CLI reads schema, profiles, and features from a JSON config file. It looks for `.envokerrc.json` or `envoker.config.json` in the project root.
 
 ```json
 {
@@ -271,34 +271,34 @@ The CLI reads schema, profiles, and features from a JSON config file. It looks f
 
 ```sh
 # Generate .env.example from the config
-bunx beacon init
-bunx beacon init --profile production
-bunx beacon init --all-profiles
+bunx envoker init
+bunx envoker init --profile production
+bunx envoker init --all-profiles
 
 # Validate current environment against schema
-bunx beacon check
-bunx beacon check --profile staging
+bunx envoker check
+bunx envoker check --profile staging
 
 # Detect config drift (missing vars, type mismatches)
-bunx beacon drift
-bunx beacon drift --profile production
+bunx envoker drift
+bunx envoker drift --profile production
 
 # Encrypt/decrypt .env files for safe committing
-BEACON_ENCRYPTION_KEY=... beacon encrypt
-BEACON_ENCRYPTION_KEY=... beacon decrypt
+BEACON_ENCRYPTION_KEY=... envoker encrypt
+BEACON_ENCRYPTION_KEY=... envoker decrypt
 
 # Validate env in Docker/Kubernetes
-bunx beacon docker
+bunx envoker docker
 
 # Print secret rotation checklist
-bunx beacon rotate
+bunx envoker rotate
 ```
 
 ---
 
 ## Configuration Reference
 
-### `createBeacon(schema, options?)`
+### `createEnvoker(schema, options?)`
 
 | Option         | Type                                          | Default | Description                                               |
 | -------------- | --------------------------------------------- | ------- | --------------------------------------------------------- |
@@ -331,11 +331,11 @@ bunx beacon rotate
 | `secret`      | `boolean`   | `false` | Redact value from errors, logs, and CLI output. |
 | `description` | `string`    | —       | Human-readable description.                     |
 
-### Returned Beacon instance
+### Returned Envoker instance
 
 | Method / Property    | Returns                   | Description                                |
 | -------------------- | ------------------------- | ------------------------------------------ |
-| `ensure(options?)`   | `Promise<Beacon>`         | Validates all env vars. Throws on failure. |
+| `ensure(options?)`   | `Promise<Envoker>`         | Validates all env vars. Throws on failure. |
 | `getAll()`           | `Record<string, unknown>` | Returns all resolved values.               |
 | `get<T>(key)`        | `T`                       | Returns a single typed value.              |
 | `secret`             | `Record<string, boolean>` | Which keys are marked as secrets.          |
@@ -360,13 +360,13 @@ bunx beacon rotate
 
 ## TypeScript
 
-Beacon ships with strict TypeScript types. All public APIs are fully typed.
+Envoker ships with strict TypeScript types. All public APIs are fully typed.
 
 ```ts
-import { createBeacon } from "envoker";
+import { createEnvoker } from "envoker";
 import type {
-  Beacon,
-  BeaconOptions,
+  Envoker,
+  EnvokerOptions,
   SchemaEntry,
   FieldDefinition,
   FieldType,
@@ -380,7 +380,7 @@ import type {
 **Generic inference with `.get<T>()`:**
 
 ```ts
-const config = createBeacon({
+const config = createEnvoker({
   PORT: { type: "port", default: 3000 },
   DEBUG: { type: "boolean", default: false },
 });
@@ -395,17 +395,17 @@ const debug = config.get<boolean>("DEBUG"); // inferred as boolean
 
 ## Integration with Remba Cloud
 
-Beacon can fetch remote configuration from the Remba cloud by passing a `Client` instance from the Remba cloud client.
+Envoker can fetch remote configuration from the Remba cloud by passing a `Client` instance from the Remba cloud client.
 
 ```ts
-import { createBeacon } from "envoker";
+import { createEnvoker } from "envoker";
 // Remba cloud client SDK
 
 const client = createClient({
   apiKey: "api_core_live_abc123",
 });
 
-const config = createBeacon(
+const config = createEnvoker(
   {
     LOCAL_VAR: { type: "string", default: "local-fallback" },
     PORT: { type: "port", default: 3000 },
@@ -418,10 +418,10 @@ await config.ensure();
 
 **How remote config merging works:**
 
-1. On `ensure()`, beacon calls `client.getConfig()`.
+1. On `ensure()`, envoker calls `client.getConfig()`.
 2. Remote entries whose keys are **not** in the local schema and **not** already set in `process.env` are added to the validated values.
 3. Remote entries whose keys **are** in the local schema are **ignored** — the schema definition always wins.
-4. If the network request fails (timeout, DNS error, etc.), beacon silently falls back to local-only mode.
+4. If the network request fails (timeout, DNS error, etc.), envoker silently falls back to local-only mode.
 
 This gives you a layered config priority:
 

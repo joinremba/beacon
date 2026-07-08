@@ -1,6 +1,6 @@
 # Contributing to envoker
 
-Thank you for your interest in contributing to Beacon! We welcome contributions from everyone, whether it is a bug report, feature suggestion, documentation improvement, or code change.
+Thank you for your interest in contributing to Envoker! We welcome contributions from everyone, whether it is a bug report, feature suggestion, documentation improvement, or code change.
 
 ## Code of Conduct
 
@@ -10,7 +10,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ### Prerequisites
 
-- **Bun 1.3.1+** — Beacon uses Bun as its runtime and package manager. [Install Bun](https://bun.sh/docs/installation) if you have not already.
+- **Bun 1.3.1+** — Envoker uses Bun as its runtime and package manager. [Install Bun](https://bun.sh/docs/installation) if you have not already.
 - **Git** — For version control and contributing via pull requests.
 
 ### Fork and clone
@@ -103,10 +103,10 @@ type(scope): description
 **Examples:**
 
 ```
-feat(beacon): add support for nested env schemas
-fix(beacon): handle missing env vars gracefully
-docs(beacon): document secrets redaction behaviour
-test(beacon): add tests for feature gate defaults
+feat(envoker): add support for nested env schemas
+fix(envoker): handle missing env vars gracefully
+docs(envoker): document secrets redaction behaviour
+test(envoker): add tests for feature gate defaults
 ```
 
 ## Reporting Issues

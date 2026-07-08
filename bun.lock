@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@remba/beacon",
+      "name": "envoker",
       "dependencies": {
         "zod": "^4.4.2",
       },

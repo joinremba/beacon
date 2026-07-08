@@ -1,10 +1,10 @@
 import { expect, test, describe } from "bun:test";
 import { generateEnvExample, runCheck } from "./cli-config";
-import type { BeaconConfigFile } from "./cli-config";
+import type { EnvokerConfigFile } from "./cli-config";
 
 describe("generateEnvExample", () => {
   test("generates basic env example", () => {
-    const config: BeaconConfigFile = {
+    const config: EnvokerConfigFile = {
       schema: {
         DATABASE_URL: { type: "url", required: true, description: "PostgreSQL connection string" },
         PORT: { type: "port", default: 3000, description: "HTTP server port" },
@@ -24,7 +24,7 @@ describe("generateEnvExample", () => {
   });
 
   test("includes profile override when activeProfile is set", () => {
-    const config: BeaconConfigFile = {
+    const config: EnvokerConfigFile = {
       schema: {
         DB_HOST: { type: "string", default: "localhost" },
       },
@@ -41,7 +41,7 @@ describe("generateEnvExample", () => {
   });
 
   test("marks secret vars", () => {
-    const config: BeaconConfigFile = {
+    const config: EnvokerConfigFile = {
       schema: {
         API_KEY: { type: "string", secret: true, description: "API secret key" },
       },
@@ -57,7 +57,7 @@ describe("runCheck", () => {
     const prev = process.env.TEST_DB_URL;
     process.env.TEST_DB_URL = "https://example.com/db";
     try {
-      const config: BeaconConfigFile = {
+      const config: EnvokerConfigFile = {
         schema: {
           TEST_DB_URL: { type: "url", required: true },
         },
@@ -73,7 +73,7 @@ describe("runCheck", () => {
 
   test("returns missing for absent required var", async () => {
     delete process.env.TEST_MISSING;
-    const config: BeaconConfigFile = {
+    const config: EnvokerConfigFile = {
       schema: {
         TEST_MISSING: { type: "string", required: true },
       },
@@ -86,7 +86,7 @@ describe("runCheck", () => {
     const prev = process.env.TEST_SECRET;
     process.env.TEST_SECRET = "my-secret-value-that-should-not-leak";
     try {
-      const config: BeaconConfigFile = {
+      const config: EnvokerConfigFile = {
         schema: {
           TEST_SECRET: { type: "integer", secret: true },
         },

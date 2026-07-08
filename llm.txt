@@ -9,20 +9,20 @@ bun run lint — ESLint
 bun run check — lint + format:check + typecheck + test
 
 ## CLI
-beacon init — Generate .env.example from config
-beacon check — Validate process.env against schema, reports feature gate status
-beacon drift — Detect config drift (missing vars, type mismatches) against schema
-beacon encrypt/decrypt — AES-256-GCM .env encryption with HKDF key derivation
-beacon docker — Validate env in Docker/Kubernetes contexts
+envoker init — Generate .env.example from config
+envoker check — Validate process.env against schema, reports feature gate status
+envoker drift — Detect config drift (missing vars, type mismatches) against schema
+envoker encrypt/decrypt — AES-256-GCM .env encryption with HKDF key derivation
+envoker docker — Validate env in Docker/Kubernetes contexts
 
 ## Key API
-createBeacon(schema, options?) -> Beacon
-beacon.ensure() — Parse and validate all env vars, throws ConfigValidationError with all errors at once
-beacon.get<T>(key) — Get validated config value
-beacon.isEnabled(feature) — Check feature gate (env override, then config, then deterministic rollout)
-beacon.isKilled(feature) — Check kill switch (KILL_<NAME> env override, then config)
-beacon.getAll() — All validated values
-beacon.secret — Record<string, boolean> of secret keys
+createEnvoker(schema, options?) -> Envoker
+envoker.ensure() — Parse and validate all env vars, throws ConfigValidationError with all errors at once
+envoker.get<T>(key) — Get validated config value
+envoker.isEnabled(feature) — Check feature gate (env override, then config, then deterministic rollout)
+envoker.isKilled(feature) — Check kill switch (KILL_<NAME> env override, then config)
+envoker.getAll() — All validated values
+envoker.secret — Record<string, boolean> of secret keys
 
 ## Schema
 Field types: string, host, url, number, integer, boolean, port, email, enum
@@ -31,11 +31,11 @@ Secrets are redacted to [REDACTED] in errors and CLI output.
 Profile overrides merge production/staging-specific schema entries.
 
 ## Feature Gates
-createBeacon(schema, { features: { featureName: { enabled: true, rollout: 0.5, description: "..." } } })
+createEnvoker(schema, { features: { featureName: { enabled: true, rollout: 0.5, description: "..." } } })
 Override via FEATURE_<NAME>=true env var. Deterministic rollout via DJB2 hashing.
 Kill switch via KILL_<NAME>=true env var overrides features.
 
 ## Patterns
-Named exports only (except index.ts default exports createBeacon).
-Config file: .beaconrc.json or beacon.config.json with schema/profiles/features.
+Named exports only (except index.ts default exports createEnvoker).
+Config file: .envokerrc.json or envoker.config.json with schema/profiles/features.
 Remote config via Remba cloud client with local fallback.

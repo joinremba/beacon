@@ -15,7 +15,7 @@ async function deriveKey(password: string): Promise<CryptoKey> {
       name: "HKDF",
       hash: "SHA-256",
       salt: new Uint8Array(32),
-      info: new TextEncoder().encode("beacon-env-encryption-v1"),
+      info: new TextEncoder().encode("envoker-env-encryption-v1"),
     },
     keyMaterial,
     { name: ALGORITHM, length: 256 },

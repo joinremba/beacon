@@ -36,7 +36,7 @@ export interface FeatureGate {
   description?: string;
 }
 
-export interface BeaconOptions {
+export interface EnvokerOptions {
   profile?: string;
   profiles?: Record<string, Record<string, SchemaEntry>>;
   features?: Record<string, FeatureGate>;
@@ -50,8 +50,8 @@ export interface EnsureOptions {
   strict?: boolean;
 }
 
-export interface Beacon {
-  ensure(options?: EnsureOptions): Promise<Beacon>;
+export interface Envoker {
+  ensure(options?: EnsureOptions): Promise<Envoker>;
   get<T = unknown>(key: string): T;
   getAll(): Record<string, unknown>;
   readonly secret: Record<string, boolean>;
