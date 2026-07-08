@@ -136,7 +136,9 @@ async function handleInit(args: ParsedArgs) {
       process.exit(1);
     }
     config = { schema: {} };
-    console.warn(` ${icon.info} No config file found. Creating ${color.bold(".envokerrc.json")}...`);
+    console.warn(
+      ` ${icon.info} No config file found. Creating ${color.bold(".envokerrc.json")}...`
+    );
     const template = {
       schema: {
         DATABASE_URL: { type: "url", required: true, description: "PostgreSQL connection string" },

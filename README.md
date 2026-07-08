@@ -335,7 +335,7 @@ bunx envoker rotate
 
 | Method / Property    | Returns                   | Description                                |
 | -------------------- | ------------------------- | ------------------------------------------ |
-| `ensure(options?)`   | `Promise<Envoker>`         | Validates all env vars. Throws on failure. |
+| `ensure(options?)`   | `Promise<Envoker>`        | Validates all env vars. Throws on failure. |
 | `getAll()`           | `Record<string, unknown>` | Returns all resolved values.               |
 | `get<T>(key)`        | `T`                       | Returns a single typed value.              |
 | `secret`             | `Record<string, boolean>` | Which keys are marked as secrets.          |
